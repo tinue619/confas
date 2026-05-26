@@ -1,0 +1,32 @@
+{
+  "name": "Фасад широкий",
+  "svgName": "shir",
+  "svgContent": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n<svg xmlns=\"http://www.w3.org/2000/svg\" xml:space=\"preserve\" width=\"210mm\" height=\"297mm\" version=\"1.1\" style=\"shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd\"\nviewBox=\"0 0 21000 29700\"\n xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n <g id=\"L1\">\n   <line x1=\"9000\" y1=\"14950\" x2=\"9000\" y2=\"15450\" />\n   <line x1=\"9000\" y1=\"15450\" x2=\"9700\" y2=\"15450\" />\n   <line x1=\"9700\" y1=\"15450\" x2=\"9700\" y2=\"15550\" />\n   <line x1=\"9700\" y1=\"15550\" x2=\"8900\" y2=\"15550\" />\n   <line x1=\"8900\" y1=\"15550\" x2=\"8900\" y2=\"13550\" />\n   <line x1=\"8900\" y1=\"13550\" x2=\"13300\" y2=\"13550\" />\n   <line x1=\"13300\" y1=\"13550\" x2=\"13300\" y2=\"14950\" />\n   <line x1=\"13300\" y1=\"14950\" x2=\"9000\" y2=\"14950\" />\n </g>\n</svg>\n",
+  "rotation": 270,
+  "offset": { "x": -4, "y": 0 },
+  "glassEdgeY": -2,
+  "glassThickness": 4,
+  "drilling": {
+    "diameter": 35,
+    "depth": 12,
+    "edgeOffset": 22.5
+  },
+  "hinges": {
+    "objFile": "wide-profile-hinge.obj",
+    "intervals": [
+      { "maxLength":  900, "count": 2 },
+      { "maxLength": 1500, "count": 3 },
+      { "maxLength": 2200, "count": 4 },
+      { "maxLength": 3210, "count": 5 }
+    ],
+    "endOffset": 100
+  },
+  "pricing": {
+    "profile":  { "keyPattern": "profile_wide_${profileColor}",                       "unit": "m"     },
+    "glass":    { "keyPattern": "glass_${glassColor}_${glassType}_${glassThickness}", "unit": "m2"    },
+    "drilling": { "key": "drilling_wide",                                             "unit": "piece" },
+    "hinge":    { "key": "hinge_wide",                                                "unit": "piece" },
+    "temperedMarkup": 0.3
+  },
+  "exportedAt": "2026-05-26T00:00:00.000Z"
+}

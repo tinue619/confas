@@ -1,0 +1,20 @@
+{
+  "profile_wide_inox":      { "name": "Профиль широкий, нержа",           "purchase": 300, "k": 1.8 },
+  "profile_wide_black":     { "name": "Профиль широкий, чёрный",          "purchase": 280, "k": 1.8 },
+  "profile_wide_gold":      { "name": "Профиль широкий, золото",          "purchase": 450, "k": 1.8 },
+  "profile_wide_champagne": { "name": "Профиль широкий, шампань",         "purchase": 380, "k": 1.8 },
+  "profile_wide_bronze":    { "name": "Профиль широкий, бронза",          "purchase": 350, "k": 1.8 },
+
+  "glass_clear_smooth_4":    { "name": "Стекло прозрачное гладкое 4мм",   "purchase": 1000, "k": 1.6 },
+  "glass_clear_matte_4":     { "name": "Стекло прозрачное матовое 4мм",   "purchase": 1200, "k": 1.6 },
+  "glass_clear_textured_4":  { "name": "Стекло прозрачное рифлёное 4мм",  "purchase": 1400, "k": 1.6 },
+  "glass_gray_smooth_4":     { "name": "Стекло серое гладкое 4мм",        "purchase": 1300, "k": 1.6 },
+  "glass_gray_matte_4":      { "name": "Стекло серое матовое 4мм",        "purchase": 1500, "k": 1.6 },
+  "glass_gray_textured_4":   { "name": "Стекло серое рифлёное 4мм",       "purchase": 1700, "k": 1.6 },
+  "glass_bronze_smooth_4":   { "name": "Стекло бронза гладкое 4мм",       "purchase": 1300, "k": 1.6 },
+  "glass_bronze_matte_4":    { "name": "Стекло бронза матовое 4мм",       "purchase": 1500, "k": 1.6 },
+  "glass_bronze_textured_4": { "name": "Стекло бронза рифлёное 4мм",      "purchase": 1700, "k": 1.6 },
+
+  "drilling_wide":          { "name": "Присадка под широкий профиль",     "purchase":  50, "k": 2.0 },
+  "hinge_wide":             { "name": "Петля для широкого профиля",       "purchase": 120, "k": 2.0 }
+}
