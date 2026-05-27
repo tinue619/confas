@@ -1,10 +1,11 @@
 import {
   Engine, Scene, ArcRotateCamera, HemisphericLight, DirectionalLight,
-  Vector3, Color3, Color4, Mesh, DefaultRenderingPipeline,
+  Vector3, Color3, Color4, Mesh, DefaultRenderingPipeline, Matrix,
 } from '@babylonjs/core';
 import { FacadeState } from './state';
 import type { FacadeModel } from './model';
 import { buildFacade } from './builder';
+import { createDimensionsOverlay } from './dimensions';
 
 export function createScene(canvas: HTMLCanvasElement, fs: FacadeState, model: FacadeModel) {
   const engine = new Engine(canvas, true, {
@@ -78,6 +79,21 @@ export function createScene(canvas: HTMLCanvasElement, fs: FacadeState, model: F
     camera.upperRadiusLimit = diag * 6;
   };
 
+  // ── CAD-стиль размеры (SVG-оверлей поверх canvas) ─────────────────────────
+  const dim = createDimensionsOverlay(canvas);
+  scene.onBeforeRenderObservable.add(() => {
+    const W = fs.width, H = fs.height;
+    // Углы фасада в мировых координатах (root спозиционирован на -W/2, 0)
+    // Берём передние углы (z небольшой положительный — край профиля)
+    const z = 4;
+    const corners = {
+      bl: project(new Vector3(-W / 2, 0, z), scene, engine, camera),
+      br: project(new Vector3( W / 2, 0, z), scene, engine, camera),
+      tl: project(new Vector3(-W / 2, H, z), scene, engine, camera),
+    };
+    dim.update(W, H, corners);
+  });
+
   engine.runRenderLoop(() => scene.render());
   window.addEventListener('resize', () => engine.resize());
 
@@ -86,4 +102,17 @@ export function createScene(canvas: HTMLCanvasElement, fs: FacadeState, model: F
   ro.observe(canvas);
 
   return { engine, scene, rebuild };
+}
+
+function project(v: Vector3, scene: Scene, engine: Engine, camera: ArcRotateCamera) {
+  const p = Vector3.Project(
+    v,
+    Matrix.Identity(),
+    scene.getTransformMatrix(),
+    camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()),
+  );
+  // Vector3.Project возвращает в координатах рендер-буфера (с учётом DPR).
+  // Делим на DPR чтобы получить CSS-пиксели для оверлея.
+  const dpr = window.devicePixelRatio || 1;
+  return { x: p.x / dpr, y: p.y / dpr };
 }
