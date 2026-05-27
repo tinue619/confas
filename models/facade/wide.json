@@ -19,7 +19,12 @@
       { "maxLength": 2200, "count": 4 },
       { "maxLength": 3210, "count": 5 }
     ],
-    "endOffset": 100
+    "endOffset": 100,
+    "transform": {
+      "rotation": { "x": 0, "y": 0, "z": 0 },
+      "offset":   { "x": 0, "y": 0, "z": 0 },
+      "scale":    1
+    }
   },
   "pricing": {
     "profile":  { "keyPattern": "profile_wide_${profileColor}",                       "unit": "m"     },

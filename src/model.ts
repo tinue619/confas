@@ -72,6 +72,13 @@ export interface HingesSpec {
   intervals: { maxLength: number; count: number }[];
   /** Минимальное расстояние от крайней петли до угла, мм */
   endOffset?: number;
+  /** Базовая трансформация модели петли в "стандартной" позиции (для левой стороны).
+   *  rotation в градусах, offset в мм, scale — масштаб. */
+  transform?: {
+    rotation?: { x?: number; y?: number; z?: number };
+    offset?:   { x?: number; y?: number; z?: number };
+    scale?:    number;
+  };
 }
 
 /** Модель с привязкой к категории и идентификатором файла */

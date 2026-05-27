@@ -10,7 +10,7 @@ import '@babylonjs/loaders/OBJ';
 import { parseSvgContour } from './svg-parser';
 import { PROFILE_COLORS, GLASS_COLORS, GLASS_TYPES } from './catalog';
 import { FacadeState, type HingeSide } from './state';
-import type { FacadeModel } from './model';
+import type { FacadeModel, HingesSpec } from './model';
 
 // Кэш загруженных .obj-петель: url → mesh-шаблон (disabled, не рендерится напрямую)
 const hingeTemplateCache = new Map<string, Mesh>();
@@ -32,10 +32,21 @@ async function loadHingeTemplate(scene: Scene, url: string): Promise<Mesh | null
         ? real[0]
         : Mesh.MergeMeshes(real, true, true, undefined, false, true);
       if (!merged) return null;
-      // Центрируем по bounding box, чтобы клоны позиционировались за центр
+
+      // Центрируем модель по bbox. Поворот/смещение прикладываются позже,
+      // при размещении клона (из model.hinges.transform).
       const bb = merged.getBoundingInfo().boundingBox;
       const c  = bb.center;
       merged.bakeTransformIntoVertices(Matrix.Translation(-c.x, -c.y, -c.z));
+
+      // Принудительно ставим металлик-материал (родной .mtl с .bmp-текстурой даёт оранжевое)
+      const hingeMat = new PBRMaterial('hinge-mat', scene);
+      hingeMat.albedoColor          = new Color3(0.78, 0.79, 0.82); // никель/нержавейка
+      hingeMat.metallic             = 0.85;
+      hingeMat.roughness            = 0.35;
+      hingeMat.environmentIntensity = 0.6;
+      merged.material = hingeMat;
+
       merged.setEnabled(false);
       merged.name = 'hinge-template';
       hingeTemplateCache.set(url, merged);
@@ -220,10 +231,7 @@ function buildHingesAndDrillings(
         const clone = template.clone(`hinge-${i}`, root, false);
         if (clone) {
           clone.setEnabled(true);
-          clone.position.set(cx, cy, backZ);
-          // Поворот: чашка должна "входить" в отверстие со стороны выбранной грани
-          clone.rotation = hingeRotation(fs.hingeSide);
-          if (!clone.material) clone.material = stubMat;
+          placeHinge(clone, cx, cy, backZ, fs.hingeSide, model.hinges?.transform);
         }
       } else {
         // Пока .obj не загрузился — лёгкий цилиндр-плейсхолдер
@@ -239,17 +247,40 @@ function buildHingesAndDrillings(
   }
 }
 
-// Поворот клонированной петли в зависимости от стороны фасада.
-// .obj экспортирован в некотором "родном" пространстве — конкретные углы
-// подкручиваются эмпирически после первого просмотра.
-function hingeRotation(side: HingeSide): Vector3 {
-  switch (side) {
-    case 'left':   return new Vector3(0, 0, 0);
-    case 'right':  return new Vector3(0, Math.PI, 0);
-    case 'top':    return new Vector3(0, 0, -Math.PI / 2);
-    case 'bottom': return new Vector3(0, 0,  Math.PI / 2);
+// Размещение клона петли с учётом transform из модели + ориентации по стороне.
+// Алгоритм:
+//   1. К отцентрированному шаблону применяем базовый transform (rotation+offset+scale)
+//      — это "положение для левой стороны" (опорное).
+//   2. Для остальных сторон добавляем доп. поворот вокруг Z и при необходимости мирроринг.
+function placeHinge(
+  clone: Mesh, cx: number, cy: number, backZ: number,
+  side: HingeSide, t?: HingesSpec['transform'],
+) {
+  const rx = deg(t?.rotation?.x ?? 0);
+  const ry = deg(t?.rotation?.y ?? 0);
+  const rz = deg(t?.rotation?.z ?? 0);
+  const ox = t?.offset?.x ?? 0;
+  const oy = t?.offset?.y ?? 0;
+  const oz = t?.offset?.z ?? 0;
+  const s  = t?.scale ?? 1;
+
+  // Базовый поворот + смещение (как для left)
+  clone.rotation.set(rx, ry, rz);
+  clone.scaling.set(s, s, s);
+  clone.position.set(cx + ox, cy + oy, backZ + oz);
+
+  // Доп. поворот вокруг Z мира для top/right/bottom (left = база)
+  let sideAngle = 0;
+  if (side === 'top')    sideAngle =  Math.PI / 2;
+  if (side === 'right')  sideAngle =  Math.PI;
+  if (side === 'bottom') sideAngle = -Math.PI / 2;
+  if (sideAngle !== 0) {
+    // Поворачиваем позицию вокруг (cx,cy) на 0 (уже там) и саму ориентацию
+    clone.rotation.z += sideAngle;
   }
 }
+
+function deg(d: number): number { return d * Math.PI / 180; }
 
 // ── Стекло: гладкое / матовое / рифлёное ──────────────────────────────────────
 function buildGlass(
