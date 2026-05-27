@@ -10,7 +10,7 @@ import '@babylonjs/loaders/OBJ';
 import { parseSvgContour } from './svg-parser';
 import { PROFILE_COLORS, GLASS_COLORS, GLASS_TYPES } from './catalog';
 import { FacadeState, type HingeSide } from './state';
-import type { FacadeModel, HingesSpec } from './model';
+import type { FacadeModel } from './model';
 
 // Кэш загруженных .obj-петель: url → mesh-шаблон (disabled, не рендерится напрямую)
 const hingeTemplateCache = new Map<string, Mesh>();
@@ -24,38 +24,45 @@ async function loadHingeTemplate(scene: Scene, url: string): Promise<Mesh | null
   const rootUrl = url.substring(0, slash + 1);
   const file    = url.substring(slash + 1);
 
-  const promise = SceneLoader.ImportMeshAsync('', rootUrl, file, scene)
-    .then(result => {
-      const real = result.meshes.filter(m => m instanceof Mesh && m.getTotalVertices() > 0) as Mesh[];
-      if (real.length === 0) return null;
-      const merged = real.length === 1
-        ? real[0]
-        : Mesh.MergeMeshes(real, true, true, undefined, false, true);
-      if (!merged) return null;
+  const calibUrl = url.replace(/\.obj$/i, '.calibration.json');
 
-      // Центрируем модель по bbox. Поворот/смещение прикладываются позже,
-      // при размещении клона (из model.hinges.transform).
+  const promise = (async () => {
+    const [result, calibration] = await Promise.all([
+      SceneLoader.ImportMeshAsync('', rootUrl, file, scene),
+      fetch(calibUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    const real = result.meshes.filter(m => m instanceof Mesh && m.getTotalVertices() > 0) as Mesh[];
+    if (real.length === 0) return null;
+    const merged = real.length === 1
+      ? real[0]
+      : Mesh.MergeMeshes(real, true, true, undefined, false, true);
+    if (!merged) return null;
+
+    if (calibration?.transform && Array.isArray(calibration.transform)) {
+      // Калибровка: V_std = M · V_obj. Запекаем матрицу в вершины.
+      const m = Matrix.FromArray(calibration.transform);
+      merged.bakeTransformIntoVertices(m);
+    } else {
+      // Fallback: центруем по bbox
       const bb = merged.getBoundingInfo().boundingBox;
       const c  = bb.center;
       merged.bakeTransformIntoVertices(Matrix.Translation(-c.x, -c.y, -c.z));
+    }
 
-      // Принудительно ставим металлик-материал (родной .mtl с .bmp-текстурой даёт оранжевое)
-      const hingeMat = new PBRMaterial('hinge-mat', scene);
-      hingeMat.albedoColor          = new Color3(0.78, 0.79, 0.82); // никель/нержавейка
-      hingeMat.metallic             = 0.85;
-      hingeMat.roughness            = 0.35;
-      hingeMat.environmentIntensity = 0.6;
-      merged.material = hingeMat;
+    // Металлик-материал поверх родного .mtl
+    const hingeMat = new PBRMaterial('hinge-mat', scene);
+    hingeMat.albedoColor          = new Color3(0.78, 0.79, 0.82);
+    hingeMat.metallic             = 0.85;
+    hingeMat.roughness            = 0.35;
+    hingeMat.environmentIntensity = 0.6;
+    merged.material = hingeMat;
 
-      merged.setEnabled(false);
-      merged.name = 'hinge-template';
-      hingeTemplateCache.set(url, merged);
-      return merged;
-    })
-    .catch(err => {
-      console.error('Hinge load failed:', url, err);
-      return null;
-    })
+    merged.setEnabled(false);
+    merged.name = 'hinge-template';
+    hingeTemplateCache.set(url, merged);
+    return merged;
+  })()
+    .catch(err => { console.error('Hinge load failed:', url, err); return null; })
     .finally(() => hingeLoading.delete(url));
 
   hingeLoading.set(url, promise);
@@ -231,7 +238,7 @@ function buildHingesAndDrillings(
         const clone = template.clone(`hinge-${i}`, root, false);
         if (clone) {
           clone.setEnabled(true);
-          placeHinge(clone, cx, cy, backZ, fs.hingeSide, model.hinges?.transform);
+          placeHinge(clone, cx, cy, backZ, fs.hingeSide);
         }
       } else {
         // Пока .obj не загрузился — лёгкий цилиндр-плейсхолдер
@@ -247,40 +254,35 @@ function buildHingesAndDrillings(
   }
 }
 
-// Размещение клона петли с учётом transform из модели + ориентации по стороне.
-// Алгоритм:
-//   1. К отцентрированному шаблону применяем базовый transform (rotation+offset+scale)
-//      — это "положение для левой стороны" (опорное).
-//   2. Для остальных сторон добавляем доп. поворот вокруг Z и при необходимости мирроринг.
+// Размещение клона калиброванной петли.
+//
+// Шаблон после калибровки:
+//   • origin = центр чашки
+//   • +Z = ось чашки в сторону шкафа (от тыльной грани наружу)
+//   • +Y = вверх вдоль края фасада (для LEFT)
+//   • +X = к центру фасада (для LEFT)
+//
+// Мир:
+//   • камера на +Z, тыльная грань на -Z → "к шкафу" = world -Z
+//   • Для LEFT: rotation 180° вокруг Y совмещает template +Z → world -Z и +Y → +Y.
+//   • Для RIGHT: добавляем mirror по X (scale.x = -1).
+//   • Для TOP/BOTTOM: ±90° вокруг Z (поверх базы).
 function placeHinge(
-  clone: Mesh, cx: number, cy: number, backZ: number,
-  side: HingeSide, t?: HingesSpec['transform'],
+  clone: Mesh, cx: number, cy: number, backZ: number, side: HingeSide,
 ) {
-  const rx = deg(t?.rotation?.x ?? 0);
-  const ry = deg(t?.rotation?.y ?? 0);
-  const rz = deg(t?.rotation?.z ?? 0);
-  const ox = t?.offset?.x ?? 0;
-  const oy = t?.offset?.y ?? 0;
-  const oz = t?.offset?.z ?? 0;
-  const s  = t?.scale ?? 1;
-
-  // Базовый поворот + смещение (как для left)
-  clone.rotation.set(rx, ry, rz);
-  clone.scaling.set(s, s, s);
-  clone.position.set(cx + ox, cy + oy, backZ + oz);
-
-  // Доп. поворот вокруг Z мира для top/right/bottom (left = база)
-  let sideAngle = 0;
-  if (side === 'top')    sideAngle =  Math.PI / 2;
-  if (side === 'right')  sideAngle =  Math.PI;
-  if (side === 'bottom') sideAngle = -Math.PI / 2;
-  if (sideAngle !== 0) {
-    // Поворачиваем позицию вокруг (cx,cy) на 0 (уже там) и саму ориентацию
-    clone.rotation.z += sideAngle;
+  clone.position.set(cx, cy, backZ);
+  clone.scaling.set(1, 1, 1);
+  // База: разворот по Y чтобы чашка ушла за фасад
+  let ry = Math.PI;
+  let rz = 0;
+  switch (side) {
+    case 'left':                                  break;
+    case 'right':   clone.scaling.x = -1;         break;
+    case 'top':     rz =  Math.PI / 2;            break;
+    case 'bottom':  rz = -Math.PI / 2;            break;
   }
+  clone.rotation.set(0, ry, rz);
 }
-
-function deg(d: number): number { return d * Math.PI / 180; }
 
 // ── Стекло: гладкое / матовое / рифлёное ──────────────────────────────────────
 function buildGlass(
