@@ -272,8 +272,8 @@ function placeHinge(
 ) {
   clone.position.set(cx, cy, backZ);
   clone.scaling.set(1, 1, 1);
-  // База: разворот по Y чтобы чашка ушла за фасад
-  let ry = Math.PI;
+  // Без базового поворота: калиброванный шаблон уже ориентирован "лицом" к камере.
+  // Per-side: поворот вокруг Z мира + зеркало по X для правой.
   let rz = 0;
   switch (side) {
     case 'left':                                  break;
@@ -281,7 +281,7 @@ function placeHinge(
     case 'top':     rz =  Math.PI / 2;            break;
     case 'bottom':  rz = -Math.PI / 2;            break;
   }
-  clone.rotation.set(0, ry, rz);
+  clone.rotation.set(0, 0, rz);
 }
 
 // ── Стекло: гладкое / матовое / рифлёное ──────────────────────────────────────
