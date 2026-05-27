@@ -12,7 +12,7 @@
     "edgeOffset": 22.5
   },
   "hinges": {
-    "objFile": "wide-profile-hinge.obj",
+    "objFile": "/hinges/boyard.obj",
     "intervals": [
       { "maxLength":  900, "count": 2 },
       { "maxLength": 1500, "count": 3 },

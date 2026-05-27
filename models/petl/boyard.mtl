@@ -1,0 +1,7 @@
+# File produced by Open Asset Import Library (http://www.assimp.sf.net)
+# (assimp v4.1.134715837)
+
+newmtl BOYARD Stal_
+illum 1
+map_Kd boyard_textures\default.bmp
+

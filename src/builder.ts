@@ -3,13 +3,53 @@
 
 import earcut from 'earcut';
 import {
-  Color3, Mesh, MeshBuilder, PBRMaterial, Scene, Vector3,
+  Color3, Matrix, Mesh, MeshBuilder, PBRMaterial, Scene, SceneLoader, Vector3,
 } from '@babylonjs/core';
+import '@babylonjs/loaders/OBJ';
 
 import { parseSvgContour } from './svg-parser';
 import { PROFILE_COLORS, GLASS_COLORS, GLASS_TYPES } from './catalog';
-import { FacadeState } from './state';
+import { FacadeState, type HingeSide } from './state';
 import type { FacadeModel } from './model';
+
+// Кэш загруженных .obj-петель: url → mesh-шаблон (disabled, не рендерится напрямую)
+const hingeTemplateCache = new Map<string, Mesh>();
+const hingeLoading = new Map<string, Promise<Mesh | null>>();
+
+async function loadHingeTemplate(scene: Scene, url: string): Promise<Mesh | null> {
+  if (hingeTemplateCache.has(url)) return hingeTemplateCache.get(url)!;
+  if (hingeLoading.has(url))       return hingeLoading.get(url)!;
+
+  const slash = url.lastIndexOf('/');
+  const rootUrl = url.substring(0, slash + 1);
+  const file    = url.substring(slash + 1);
+
+  const promise = SceneLoader.ImportMeshAsync('', rootUrl, file, scene)
+    .then(result => {
+      const real = result.meshes.filter(m => m instanceof Mesh && m.getTotalVertices() > 0) as Mesh[];
+      if (real.length === 0) return null;
+      const merged = real.length === 1
+        ? real[0]
+        : Mesh.MergeMeshes(real, true, true, undefined, false, true);
+      if (!merged) return null;
+      // Центрируем по bounding box, чтобы клоны позиционировались за центр
+      const bb = merged.getBoundingInfo().boundingBox;
+      const c  = bb.center;
+      merged.bakeTransformIntoVertices(Matrix.Translation(-c.x, -c.y, -c.z));
+      merged.setEnabled(false);
+      merged.name = 'hinge-template';
+      hingeTemplateCache.set(url, merged);
+      return merged;
+    })
+    .catch(err => {
+      console.error('Hinge load failed:', url, err);
+      return null;
+    })
+    .finally(() => hingeLoading.delete(url));
+
+  hingeLoading.set(url, promise);
+  return promise;
+}
 
 // ── Рифление: профиль волны (период 14 мм) ────────────────────────────────────
 const RIB_PERIOD = 14;
@@ -25,7 +65,8 @@ const RIB_Z_CENTER = (4.0 + 2.5) / 2;
 
 (window as any).earcut = earcut;
 
-export function buildFacade(scene: Scene, fs: FacadeState, model: FacadeModel): Mesh {
+export function buildFacade(scene: Scene, fs: FacadeState, model: FacadeModel,
+  onAsyncReady?: () => void): Mesh {
   const root = new Mesh('facade', scene);
 
   const section = getTransformedSection(model);
@@ -107,15 +148,16 @@ export function buildFacade(scene: Scene, fs: FacadeState, model: FacadeModel): 
   }
 
   // ── Присадки + петли ──────────────────────────────────────────────────────
-  buildHingesAndDrillings(scene, model, fs, section, root);
+  buildHingesAndDrillings(scene, model, fs, section, root, onAsyncReady);
 
   return root;
 }
 
-// ── Присадки (тёмные кружки) + петли (заглушка/.obj) ──────────────────────────
+// ── Присадки (тёмные кружки) + петли (клоны .obj) ────────────────────────────
 function buildHingesAndDrillings(
   scene: Scene, model: FacadeModel, fs: FacadeState,
   section: { x: number; y: number }[], root: Mesh,
+  onAsyncReady?: () => void,
 ) {
   if (fs.hingeMode === 'none' || !model.drilling) return;
 
@@ -123,27 +165,39 @@ function buildHingesAndDrillings(
   const { diameter, edgeOffset } = model.drilling;
   const radius = diameter / 2;
   const maxSx  = Math.max(...section.map(p => p.x));
-  const backZ  = -maxSx - 0.1; // чуть позади задней грани, чтобы не было z-fighting
+  const backZ  = -maxSx - 0.1;
 
-  // Материал отверстия — почти чёрный, матовый
   const holeMat = new PBRMaterial('drill', scene);
   holeMat.albedoColor          = new Color3(0.04, 0.04, 0.04);
   holeMat.metallic             = 0;
   holeMat.roughness            = 0.9;
   holeMat.environmentIntensity = 0.05;
 
-  // Материал заглушки петли (пока нет .obj)
+  // ── Загрузка/доступ к шаблону петли ──────────────────────────────────────
+  const needHinges = fs.hingeMode === 'holes+hinges' && !!model.hinges?.objFile;
+  let template: Mesh | null = null;
+  if (needHinges) {
+    const url = model.hinges!.objFile;
+    if (hingeTemplateCache.has(url)) {
+      template = hingeTemplateCache.get(url)!;
+    } else {
+      // Асинхронная загрузка — после загрузки запросим перестройку
+      loadHingeTemplate(scene, url).then(loaded => {
+        if (loaded && onAsyncReady) onAsyncReady();
+      });
+    }
+  }
+
+  // Запасной серебристый материал (если у клона .obj нет своего)
   const stubMat = new PBRMaterial('hinge-stub', scene);
-  stubMat.albedoColor          = new Color3(0.7, 0.7, 0.72);
-  stubMat.metallic             = 0.85;
-  stubMat.roughness            = 0.45;
+  stubMat.albedoColor          = new Color3(0.72, 0.72, 0.75);
+  stubMat.metallic             = 0.6;
+  stubMat.roughness            = 0.5;
   stubMat.environmentIntensity = 0.5;
 
   for (const [i, pos] of fs.hingePositions.entries()) {
-    const clamped = Math.max(0, Math.min(
-      (fs.hingeSide === 'left' || fs.hingeSide === 'right') ? H : W,
-      pos,
-    ));
+    const sideLen = (fs.hingeSide === 'left' || fs.hingeSide === 'right') ? H : W;
+    const clamped = Math.max(0, Math.min(sideLen, pos));
     let cx = 0, cy = 0;
     switch (fs.hingeSide) {
       case 'left':   cx = edgeOffset;     cy = clamped;        break;
@@ -152,7 +206,7 @@ function buildHingesAndDrillings(
       case 'bottom': cx = clamped;        cy = edgeOffset;     break;
     }
 
-    // Кружок присадки
+    // Тёмный кружок присадки
     const disc = MeshBuilder.CreateDisc(`drill-${i}`, {
       radius, sideOrientation: Mesh.DOUBLESIDE,
     }, scene);
@@ -160,17 +214,40 @@ function buildHingesAndDrillings(
     disc.material = holeMat;
     disc.parent   = root;
 
-    // Петля — пока заглушка-цилиндр сзади (на месте .obj-модели)
+    // Петля .obj — клонируем шаблон в точку присадки
     if (fs.hingeMode === 'holes+hinges') {
-      const stub = MeshBuilder.CreateCylinder(`hinge-stub-${i}`, {
-        diameter, height: model.drilling.depth + 8,
-      }, scene);
-      stub.rotation.x = Math.PI / 2; // ось чашки вдоль Z
-      stub.position.set(cx, cy, backZ - (model.drilling.depth + 8) / 2);
-      stub.material = stubMat;
-      stub.parent   = root;
-      // TODO: когда появится .obj — заменить заглушку на ImportMesh
+      if (template) {
+        const clone = template.clone(`hinge-${i}`, root, false);
+        if (clone) {
+          clone.setEnabled(true);
+          clone.position.set(cx, cy, backZ);
+          // Поворот: чашка должна "входить" в отверстие со стороны выбранной грани
+          clone.rotation = hingeRotation(fs.hingeSide);
+          if (!clone.material) clone.material = stubMat;
+        }
+      } else {
+        // Пока .obj не загрузился — лёгкий цилиндр-плейсхолдер
+        const stub = MeshBuilder.CreateCylinder(`hinge-stub-${i}`, {
+          diameter, height: model.drilling.depth + 8,
+        }, scene);
+        stub.rotation.x = Math.PI / 2;
+        stub.position.set(cx, cy, backZ - (model.drilling.depth + 8) / 2);
+        stub.material = stubMat;
+        stub.parent   = root;
+      }
     }
+  }
+}
+
+// Поворот клонированной петли в зависимости от стороны фасада.
+// .obj экспортирован в некотором "родном" пространстве — конкретные углы
+// подкручиваются эмпирически после первого просмотра.
+function hingeRotation(side: HingeSide): Vector3 {
+  switch (side) {
+    case 'left':   return new Vector3(0, 0, 0);
+    case 'right':  return new Vector3(0, Math.PI, 0);
+    case 'top':    return new Vector3(0, 0, -Math.PI / 2);
+    case 'bottom': return new Vector3(0, 0,  Math.PI / 2);
   }
 }
 

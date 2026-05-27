@@ -69,7 +69,7 @@ export function createScene(canvas: HTMLCanvasElement, fs: FacadeState, model: F
 
   const rebuild = () => {
     if (root) root.dispose(false, true);
-    root = buildFacade(scene, fs, model);
+    root = buildFacade(scene, fs, model, () => rebuild());
     root.position.set(-fs.width / 2, 0, 0);
     camera.target = new Vector3(0, fs.height / 2, 0);
     const diag = Math.hypot(fs.width, fs.height);
