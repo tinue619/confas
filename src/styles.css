@@ -182,6 +182,30 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
 /* Поменялись местами: value слева, mirror справа */
 .wheel-block--swap .wheel-readout { align-items: flex-start; }
 .wheel-block--swap .wheel-mirror  { align-items: flex-end; }
+
+/* Редактируемые числа: тап → текстовое поле */
+.editable {
+  cursor: text;
+  border-radius: 4px;
+  padding: 0 2px;
+  transition: background .12s;
+}
+.editable:hover { background: rgba(200,169,110,0.08); }
+.readout-input {
+  font: inherit; color: inherit;
+  background: transparent; border: none; outline: none;
+  width: 4ch; padding: 0; margin: 0;
+  text-align: inherit;
+  -moz-appearance: textfield;
+  caret-color: var(--accent);
+}
+.readout-input::-webkit-outer-spin-button,
+.readout-input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+/* В swap-режиме value слева — выравниваем инпут по левому краю */
+.wheel-block--swap .wheel-readout .readout-input { text-align: left; }
+.wheel-block--swap .wheel-mirror  .readout-input { text-align: right; }
 .wheel-mirror .unit {
   font-size: 11px; font-weight: 400; color: var(--muted);
   margin-left: 4px;

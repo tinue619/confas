@@ -97,6 +97,14 @@ export class WheelPicker {
     this.readoutEl = block.querySelector('.readout') as HTMLElement;
     this.mirrorReadoutEl = block.querySelector('.mirror-readout');
 
+    // Тап по числу → редактирование вручную
+    this.readoutEl.classList.add('editable');
+    this.readoutEl.addEventListener('click', () => this.startEdit('value'));
+    if (this.mirrorReadoutEl) {
+      this.mirrorReadoutEl.classList.add('editable');
+      this.mirrorReadoutEl.addEventListener('click', () => this.startEdit('mirror'));
+    }
+
     this.resize();
     this.update(o.value, false);
     this.bindEvents();
@@ -215,6 +223,43 @@ export class WheelPicker {
 
   setValue(v: number) { this.update(v, false); }
   getValue(): number { return this.value; }
+
+  private startEdit(which: 'value' | 'mirror') {
+    const target = which === 'value' ? this.readoutEl : this.mirrorReadoutEl!;
+    if (!target || target.querySelector('input')) return;
+    const initial = target.textContent ?? '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.value = initial;
+    input.className = 'readout-input';
+    target.textContent = '';
+    target.appendChild(input);
+    input.focus();
+    input.select();
+
+    const finish = (commit: boolean) => {
+      if (commit) {
+        const raw = parseInt(input.value.replace(/\D/g, ''), 10);
+        if (!isNaN(raw)) {
+          const v = which === 'mirror' && this.mirrorMax !== null
+            ? this.mirrorMax - raw
+            : raw;
+          this.update(v);
+        }
+      }
+      // Восстанавливаем текстовое содержимое — update() уже выставит правильные значения
+      target.textContent = String(which === 'value'
+        ? this.value
+        : (this.mirrorMax !== null ? Math.max(0, this.mirrorMax - this.value) : 0));
+    };
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); input.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); input.blur(); }
+    });
+    input.addEventListener('blur', () => finish(true), { once: true });
+  }
 
   destroy() {
     this.ro?.disconnect();
