@@ -43,7 +43,7 @@
   --text:     #1c1a16;
   --muted:    #6e695f;
   --muted2:   #b3ae9f;
-  --canvas-bg: #e6e1d4;
+  --canvas-bg: #ffffff;
   --grid:      rgba(0,0,0,0.04);
 
   --canvas-stroke:      rgba(0,0,0,0.55);
@@ -55,7 +55,7 @@
   --canvas-dim-dark:    #b3ae9f;
   --canvas-text:        #1c1a16;
   --canvas-text-bg:     #f1ece2;
-  --canvas-grid:        rgba(0,0,0,0.04);
+  --canvas-grid:        rgba(0,0,0,0.035);
   --wheel-tick-minor:   #c8c3b3;
 }
 
