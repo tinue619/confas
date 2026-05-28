@@ -23,6 +23,7 @@ const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
   redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`,
+  mirror: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 8 4 12l4 4"/><path d="m16 8 4 4-4 4"/></svg>`,
 };
 
 export function mountApp(root: HTMLElement) {
@@ -337,16 +338,32 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     },
   });
 
-  // Аккуратная текстовая ссылка-кнопка: иконка + лейбл + счётчик
+  // Действия: расставить автоматически + отразить
+  const actions = document.createElement('div');
+  actions.className = 'link-btn-row';
+
   const reset = document.createElement('button');
   reset.className = 'link-btn';
-  reset.innerHTML = `<span class="link-btn-icon">${ICON.redo}</span>Расставить автоматически <span class="link-btn-count">${fs.hingePositions.length} шт</span>`;
+  reset.innerHTML = `<span class="link-btn-icon">${ICON.redo}</span>Авто <span class="link-btn-count">${fs.hingePositions.length} шт</span>`;
   reset.onclick = () => {
     fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
     refresh();
     remount();
   };
-  area.appendChild(reset);
+
+  const mirror = document.createElement('button');
+  mirror.className = 'link-btn';
+  mirror.innerHTML = `<span class="link-btn-icon">${ICON.mirror}</span>Зеркально`;
+  mirror.disabled = fs.hingePositions.length < 2;
+  mirror.onclick = () => {
+    const sideLen = sideLength(fs);
+    fs.hingePositions = fs.hingePositions.map(p => sideLen - p).sort((a, b) => a - b);
+    refresh();
+    remount();
+  };
+
+  actions.append(reset, mirror);
+  area.appendChild(actions);
 }
 
 function toolHeader(area: HTMLElement, title: string, hint = '') {

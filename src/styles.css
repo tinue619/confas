@@ -352,8 +352,14 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
   color: var(--muted); cursor: pointer; letter-spacing: 0.02em;
   transition: color .15s, background .15s;
 }
-.link-btn:hover { color: var(--text); background: rgba(255,255,255,0.02); }
-.link-btn:active { background: rgba(255,255,255,0.04); }
+.link-btn:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,0.02); }
+.link-btn:active:not(:disabled) { background: rgba(255,255,255,0.04); }
+.link-btn:disabled { opacity: 0.4; cursor: default; }
+.link-btn-row {
+  display: flex; border-top: 1px solid var(--border);
+}
+.link-btn-row .link-btn { border-top: none; flex: 1; }
+.link-btn-row .link-btn + .link-btn { border-left: 1px solid var(--border); }
 .link-btn-icon { display: inline-flex; width: 14px; height: 14px; color: var(--accent); }
 .link-btn-icon svg { width: 100%; height: 100%; }
 .link-btn-count {
