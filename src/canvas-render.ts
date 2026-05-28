@@ -7,6 +7,7 @@ import { GLASS_COLORS, PROFILE_COLORS } from './catalog';
 
 const FRAME_WIDTH_MM = 44; // ширина видимой рамы профиля по фронту, мм
 const GLASS_INSET_MM = 4;  // отступ стекла от наружного края изделия, мм
+const SCREW_DIAM_MM  = 5;  // диаметр самореза, мм
 
 const ACCENT = '#c8a96e';
 const COLOR_DIM = '#7a7670';
@@ -119,10 +120,15 @@ export class FacadeRenderer {
     const glass = Math.max(3,  GLASS_INSET_MM * scale);
     const profileHex = PROFILE_COLORS[this.state.profileColor]?.hex ?? '#888';
 
-    // Тёмная подложка в проёме фасада (за стеклом)
+    // Стекло — заходит за раму. Рисуем его ДО рамы, чтобы рама закрывала наружные 44мм.
+    // Подложка тёмная, поверх — заливка стекла выбранного цвета.
+    const glassHex = GLASS_COLORS[this.state.glassColor]?.hex ?? '#c4d8de';
+    const matte = this.state.glassType === 'matte';
     ctx.save();
     ctx.fillStyle = '#0d0c0b';
-    ctx.fillRect(rx + frame, ry + frame, Math.max(0, rw - frame * 2), Math.max(0, rh - frame * 2));
+    ctx.fillRect(rx + glass, ry + glass, rw - glass * 2, rh - glass * 2);
+    ctx.fillStyle = hexToRgba(glassHex, matte ? 0.65 : 0.35);
+    ctx.fillRect(rx + glass, ry + glass, rw - glass * 2, rh - glass * 2);
     ctx.restore();
 
     // Рама из 4-х трапеций с 45° запилами (от наружного к внутреннему углу).
@@ -149,14 +155,6 @@ export class FacadeRenderer {
     }
     ctx.restore();
 
-    // Стекло — лежит на профиле, отступ 4мм от наружного края.
-    const glassHex = GLASS_COLORS[this.state.glassColor]?.hex ?? '#c4d8de';
-    const matte = this.state.glassType === 'matte';
-    ctx.save();
-    ctx.fillStyle = hexToRgba(glassHex, matte ? 0.35 : 0.22);
-    ctx.fillRect(rx + glass, ry + glass, rw - glass * 2, rh - glass * 2);
-    ctx.restore();
-
     // Контуры и линии запилов
     ctx.save();
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
@@ -165,11 +163,7 @@ export class FacadeRenderer {
     ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
     // Внутренний контур проёма
     ctx.strokeRect(rx + frame + 0.5, ry + frame + 0.5, rw - frame * 2 - 1, rh - frame * 2 - 1);
-    // Линия края стекла (тонкая)
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.strokeRect(rx + glass + 0.5, ry + glass + 0.5, rw - glass * 2 - 1, rh - glass * 2 - 1);
     // 45° запилы по углам — от наружного угла к внутреннему углу проёма
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     for (let i = 0; i < 4; i++) {
       ctx.beginPath();
       ctx.moveTo(outer[i][0] + 0.5, outer[i][1] + 0.5);
@@ -179,8 +173,8 @@ export class FacadeRenderer {
     ctx.restore();
 
     // Саморезы — 2 на каждый угол, сидят на видимой раме, сдвинуты от угла вдоль ребра
-    // и от наружного края к середине рамы. Под стеклом — слегка приглушены через alpha.
-    const screwR = Math.max(2.6, Math.min(frame * 0.18, 4));
+    // и от наружного края к середине рамы. Реальный диаметр 5мм.
+    const screwR = Math.max(2, (SCREW_DIAM_MM / 2) * scale);
     const screwOff = Math.max(20, frame * 0.5);                // вдоль ребра
     const screwBand = Math.max(glass + 5, frame * 0.45);       // от наружного края к середине рамы
     const screws: [number, number][] = [
