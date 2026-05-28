@@ -11,9 +11,9 @@ const COLOR_DIM_DARK = '#4a4844';
 const COLOR_TEXT = '#f0ede8';
 const COLOR_BG_DARK = '#0f0f0f';
 
-const PAD_BASE = 28;
-const RULER_GAP = 28;
-const HINGE_CHAIN_GAP = 50;
+const PAD_BASE = 10;
+const RULER_GAP = 26;
+const HINGE_CHAIN_GAP = 44;
 const HINGE_HIT_RADIUS = 18; // px вокруг центра петли — зона тапа
 const EMPTY_HIT_BAND = 22;   // px от ребра, где tap считается "по пустому месту на стороне"
 
@@ -65,14 +65,24 @@ export class FacadeRenderer {
     ctx.clearRect(0, 0, cw, ch);
 
     const W = this.state.width, H = this.state.height;
-    const PAD = PAD_BASE + RULER_GAP + HINGE_CHAIN_GAP;
-    const availW = cw - PAD * 2;
-    const availH = ch - PAD * 2;
+    // Отступы со сторон фасада зависят от того, что там рисуется:
+    //  • снизу — размер ширины,
+    //  • справа — размер высоты,
+    //  • на стороне петель — цепочка размеров между петлями.
+    const hingeMode = this.state.hingeMode;
+    const hingeOnSide = (s: 'left'|'right'|'top'|'bottom') =>
+      hingeMode !== 'none' && this.state.hingeSide === s ? HINGE_CHAIN_GAP : 0;
+    const padL = PAD_BASE + hingeOnSide('left');
+    const padR = PAD_BASE + RULER_GAP + hingeOnSide('right');
+    const padT = PAD_BASE + hingeOnSide('top');
+    const padB = PAD_BASE + RULER_GAP + hingeOnSide('bottom');
+    const availW = cw - padL - padR;
+    const availH = ch - padT - padB;
     const scale = Math.min(availW / W, availH / H);
     const rw = Math.round(W * scale);
     const rh = Math.round(H * scale);
-    const rx = Math.round((cw - rw) / 2);
-    const ry = Math.round((ch - rh) / 2);
+    const rx = Math.round(padL + (availW - rw) / 2);
+    const ry = Math.round(padT + (availH - rh) / 2);
     this.rect = { x: rx, y: ry, w: rw, h: rh, scale };
 
     this.drawFacadeBody(rx, ry, rw, rh);
