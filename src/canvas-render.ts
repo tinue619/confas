@@ -114,10 +114,9 @@ export class FacadeRenderer {
 
   private drawFacadeBody(rx: number, ry: number, rw: number, rh: number, scale: number) {
     const ctx = this.ctx;
-    // Видимая ширина рамы (44мм) и отступ стекла от наружного края (4мм).
-    // На малых масштабах задаём пиксельный минимум для читаемости.
-    const frame = Math.max(14, FRAME_WIDTH_MM * scale);
-    const glass = Math.max(3,  GLASS_INSET_MM * scale);
+    // Все размеры в реальных мм, переведённых в пиксели через scale.
+    const frame = FRAME_WIDTH_MM * scale;
+    const glass = GLASS_INSET_MM * scale;
     const profileHex = PROFILE_COLORS[this.state.profileColor]?.hex ?? '#888';
 
     // Стекло — заходит за раму. Рисуем его ДО рамы, чтобы рама закрывала наружные 44мм.
@@ -172,11 +171,11 @@ export class FacadeRenderer {
     }
     ctx.restore();
 
-    // Саморезы — 2 на каждый угол, сидят на видимой раме, сдвинуты от угла вдоль ребра
-    // и от наружного края к середине рамы. Реальный диаметр 5мм.
-    const screwR = Math.max(2, (SCREW_DIAM_MM / 2) * scale);
-    const screwOff = Math.max(20, frame * 0.5);                // вдоль ребра
-    const screwBand = Math.max(glass + 5, frame * 0.45);       // от наружного края к середине рамы
+    // Саморезы — 2 на каждый угол, сидят на видимой раме.
+    // Реальный диаметр 5мм; смещения тоже в мм.
+    const screwR    = (SCREW_DIAM_MM / 2) * scale;
+    const screwOff  = 22 * scale;                  // 22мм от угла вдоль ребра
+    const screwBand = (FRAME_WIDTH_MM / 2) * scale; // по центру 44мм рамы
     const screws: [number, number][] = [
       // top edge
       [rx + screwOff, ry + screwBand],
