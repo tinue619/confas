@@ -5,7 +5,8 @@ import type { FacadeState, HingeSide } from './state';
 import type { FacadeModel } from './model';
 import { GLASS_COLORS, PROFILE_COLORS } from './catalog';
 
-const GLASS_INSET_MM = 4; // отступ стекла от наружного края изделия, мм
+const FRAME_WIDTH_MM = 44; // ширина видимой рамы профиля по фронту, мм
+const GLASS_INSET_MM = 4;  // отступ стекла от наружного края изделия, мм
 
 const ACCENT = '#c8a96e';
 const COLOR_DIM = '#7a7670';
@@ -88,7 +89,6 @@ export class FacadeRenderer {
     this.rect = { x: rx, y: ry, w: rw, h: rh, scale };
 
     this.drawFacadeBody(rx, ry, rw, rh, scale);
-    this.drawGlassArea(rx, ry, rw, rh, scale);
     this.drawHingesAndDrillings(rx, ry, rw, rh, scale);
     this.drawDimensions(rx, ry, rw, rh, W, H);
     this.drawHingeChain(rx, ry, rw, rh, scale);
@@ -113,26 +113,27 @@ export class FacadeRenderer {
 
   private drawFacadeBody(rx: number, ry: number, rw: number, rh: number, scale: number) {
     const ctx = this.ctx;
-    // Видимая ширина рамы профиля в пикселях. Реальные 4мм могут быть слишком узкими
-    // на маленьких канвасах — выдерживаем минимум ~7px для читаемости.
-    const inset = Math.max(7, GLASS_INSET_MM * scale);
+    // Видимая ширина рамы (44мм) и отступ стекла от наружного края (4мм).
+    // На малых масштабах задаём пиксельный минимум для читаемости.
+    const frame = Math.max(14, FRAME_WIDTH_MM * scale);
+    const glass = Math.max(3,  GLASS_INSET_MM * scale);
     const profileHex = PROFILE_COLORS[this.state.profileColor]?.hex ?? '#888';
 
-    // Тёмная подложка под фасад (фон в проёме до отрисовки стекла)
+    // Тёмная подложка в проёме фасада (за стеклом)
     ctx.save();
-    ctx.fillStyle = '#1a1815';
-    ctx.fillRect(rx, ry, rw, rh);
+    ctx.fillStyle = '#0d0c0b';
+    ctx.fillRect(rx + frame, ry + frame, Math.max(0, rw - frame * 2), Math.max(0, rh - frame * 2));
     ctx.restore();
 
-    // Заливка рамы — четыре трапеции (миты по углам)
+    // Рама из 4-х трапеций с 45° запилами (от наружного к внутреннему углу).
     const outer = [
       [rx, ry], [rx + rw, ry], [rx + rw, ry + rh], [rx, ry + rh],
     ];
-    const inner = [
-      [rx + inset, ry + inset],
-      [rx + rw - inset, ry + inset],
-      [rx + rw - inset, ry + rh - inset],
-      [rx + inset, ry + rh - inset],
+    const innerFrame = [
+      [rx + frame, ry + frame],
+      [rx + rw - frame, ry + frame],
+      [rx + rw - frame, ry + rh - frame],
+      [rx + frame, ry + rh - frame],
     ];
     ctx.save();
     ctx.fillStyle = profileHex;
@@ -141,44 +142,60 @@ export class FacadeRenderer {
       ctx.beginPath();
       ctx.moveTo(outer[i][0], outer[i][1]);
       ctx.lineTo(outer[j][0], outer[j][1]);
-      ctx.lineTo(inner[j][0], inner[j][1]);
-      ctx.lineTo(inner[i][0], inner[i][1]);
+      ctx.lineTo(innerFrame[j][0], innerFrame[j][1]);
+      ctx.lineTo(innerFrame[i][0], innerFrame[i][1]);
       ctx.closePath();
       ctx.fill();
     }
     ctx.restore();
 
-    // Контуры: наружный и внутренний, плюс 45° запилы (от наружного угла к внутреннему)
+    // Стекло — лежит на профиле, отступ 4мм от наружного края.
+    const glassHex = GLASS_COLORS[this.state.glassColor]?.hex ?? '#c4d8de';
+    const matte = this.state.glassType === 'matte';
+    ctx.save();
+    ctx.fillStyle = hexToRgba(glassHex, matte ? 0.35 : 0.22);
+    ctx.fillRect(rx + glass, ry + glass, rw - glass * 2, rh - glass * 2);
+    ctx.restore();
+
+    // Контуры и линии запилов
     ctx.save();
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     ctx.lineWidth = 1;
+    // Наружный контур
     ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
-    ctx.strokeRect(rx + inset + 0.5, ry + inset + 0.5, rw - inset * 2 - 1, rh - inset * 2 - 1);
+    // Внутренний контур проёма
+    ctx.strokeRect(rx + frame + 0.5, ry + frame + 0.5, rw - frame * 2 - 1, rh - frame * 2 - 1);
+    // Линия края стекла (тонкая)
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.strokeRect(rx + glass + 0.5, ry + glass + 0.5, rw - glass * 2 - 1, rh - glass * 2 - 1);
+    // 45° запилы по углам — от наружного угла к внутреннему углу проёма
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     for (let i = 0; i < 4; i++) {
       ctx.beginPath();
       ctx.moveTo(outer[i][0] + 0.5, outer[i][1] + 0.5);
-      ctx.lineTo(inner[i][0] + 0.5, inner[i][1] + 0.5);
+      ctx.lineTo(innerFrame[i][0] + 0.5, innerFrame[i][1] + 0.5);
       ctx.stroke();
     }
     ctx.restore();
 
-    // Саморезы — 2 на каждый угол (по одному на каждой смежной стороне рядом с углом)
-    const screwR = Math.max(2.2, Math.min(inset * 0.32, 3.5));
-    const screwOff = Math.max(14, inset * 2.5); // расстояние от угла вдоль ребра
-    const halfBand = inset / 2;
+    // Саморезы — 2 на каждый угол, сидят на видимой раме, сдвинуты от угла вдоль ребра
+    // и от наружного края к середине рамы. Под стеклом — слегка приглушены через alpha.
+    const screwR = Math.max(2.6, Math.min(frame * 0.18, 4));
+    const screwOff = Math.max(20, frame * 0.5);                // вдоль ребра
+    const screwBand = Math.max(glass + 5, frame * 0.45);       // от наружного края к середине рамы
     const screws: [number, number][] = [
       // top edge
-      [rx + screwOff, ry + halfBand],
-      [rx + rw - screwOff, ry + halfBand],
+      [rx + screwOff, ry + screwBand],
+      [rx + rw - screwOff, ry + screwBand],
       // bottom edge
-      [rx + screwOff, ry + rh - halfBand],
-      [rx + rw - screwOff, ry + rh - halfBand],
+      [rx + screwOff, ry + rh - screwBand],
+      [rx + rw - screwOff, ry + rh - screwBand],
       // left edge
-      [rx + halfBand, ry + screwOff],
-      [rx + halfBand, ry + rh - screwOff],
+      [rx + screwBand, ry + screwOff],
+      [rx + screwBand, ry + rh - screwOff],
       // right edge
-      [rx + rw - halfBand, ry + screwOff],
-      [rx + rw - halfBand, ry + rh - screwOff],
+      [rx + rw - screwBand, ry + screwOff],
+      [rx + rw - screwBand, ry + rh - screwOff],
     ];
     for (const [sx, sy] of screws) this.drawScrew(sx, sy, screwR);
   }
@@ -197,19 +214,6 @@ export class FacadeRenderer {
     ctx.moveTo(x - d, y - d); ctx.lineTo(x + d, y + d);
     ctx.moveTo(x + d, y - d); ctx.lineTo(x - d, y + d);
     ctx.stroke();
-    ctx.restore();
-  }
-
-  private drawGlassArea(rx: number, ry: number, rw: number, rh: number, scale: number) {
-    const ctx = this.ctx;
-    const inset = Math.max(7, GLASS_INSET_MM * scale);
-    if (inset * 2 >= rw || inset * 2 >= rh) return;
-    const gx = rx + inset, gy = ry + inset;
-    const gw = rw - inset * 2, gh = rh - inset * 2;
-    const glassHex = GLASS_COLORS[this.state.glassColor]?.hex ?? '#c4d8de';
-    ctx.save();
-    ctx.fillStyle = hexToRgba(glassHex, this.state.glassType === 'matte' ? 0.22 : 0.14);
-    ctx.fillRect(gx, gy, gw, gh);
     ctx.restore();
   }
 
