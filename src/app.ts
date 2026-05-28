@@ -2,7 +2,7 @@
 // инструментов и текущий инструмент снизу.
 
 import './styles.css';
-import { FacadeState, autoHingePositions, sideLength,
+import { FacadeState, autoHingePositions, spreadHinges, sideLength,
          type HingeSide } from './state';
 import { PROFILE_COLORS, GLASS_COLORS, GLASS_TYPES,
          type ProfileColor, type GlassColor, type GlassType } from './catalog';
@@ -139,23 +139,19 @@ function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => v
   if (hit.kind === 'hinge') {
     openHingeEditor(fs, model, hit.index, refresh, renderer);
   } else if (hit.kind === 'empty') {
-    // Добавляем новую петлю с учётом ограничений: 60мм от краёв, 20мм между петлями.
+    // Добавление = «расставить заново» для нового количества петель.
     const sideLen = sideLength(fs);
-    const EDGE_MIN = 60, HINGE_GAP = 45;
-    let mm = Math.max(EDGE_MIN, Math.min(sideLen - EDGE_MIN, hit.mm));
-    // Если попадает в зазор 20мм с соседом — сдвигаем; не помещается — отменяем.
-    const sorted = [...fs.hingePositions].sort((a, b) => a - b);
-    for (const p of sorted) {
-      if (Math.abs(p - mm) < HINGE_GAP) {
-        mm = mm < p ? p - HINGE_GAP : p + HINGE_GAP;
-      }
-    }
-    if (mm < EDGE_MIN || mm > sideLen - EDGE_MIN) return; // нет места
-    fs.hingePositions.push(mm);
-    fs.hingePositions.sort((a, b) => a - b);
+    const newCount = fs.hingePositions.length + 1;
+    const endOffset = model.hinges?.endOffset ?? 100;
+    fs.hingePositions = spreadHinges(newCount, sideLen, endOffset);
     refresh();
-    const newIndex = fs.hingePositions.indexOf(mm);
-    openHingeEditor(fs, model, newIndex, refresh, renderer);
+    // Открываем редактор на ближайшей к тапу петле
+    let nearestIdx = 0, nearestDist = Infinity;
+    for (let i = 0; i < fs.hingePositions.length; i++) {
+      const d = Math.abs(fs.hingePositions[i] - hit.mm);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+    }
+    openHingeEditor(fs, model, nearestIdx, refresh, renderer);
   }
 }
 
@@ -193,6 +189,9 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
       min: minBound, max: maxBound, value: currentValue,
       mirrorMax: sideLen, mirrorLabel: labelFromEnd,
       snapPoints, snapTolerance: 18,
+      // Для горизонтальных сторон «слева» должно быть визуально слева.
+      // value-readout = «слева» (от начала), значит он идёт в левую колонку.
+      valueOnLeft: !isVertical,
       onChange: v => {
         currentValue = v;
         fs.hingePositions[index] = v;
@@ -207,7 +206,9 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
     del.className = 'btn btn-danger';
     del.innerHTML = `<span class="btn-icon">${ICON.trash}</span>Удалить`;
     del.onclick = () => {
-      fs.hingePositions.splice(index, 1);
+      const newCount = Math.max(0, fs.hingePositions.length - 1);
+      const endOffset = model.hinges?.endOffset ?? 100;
+      fs.hingePositions = spreadHinges(newCount, sideLength(fs), endOffset);
       close();
       refresh();
     };

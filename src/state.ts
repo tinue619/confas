@@ -29,13 +29,16 @@ export function sideLength(fs: FacadeState): number {
 export function autoHingePositions(spec: HingesSpec, length: number): number[] {
   const interval = spec.intervals.find(i => length <= i.maxLength)
                  ?? spec.intervals[spec.intervals.length - 1];
-  const n = interval.count;
-  if (n <= 0) return [];
-  const off = spec.endOffset ?? 100;
-  if (n === 1) return [length / 2];
-  const first = Math.min(off, length / 2);
+  return spreadHinges(interval.count, length, spec.endOffset ?? 100);
+}
+
+/** Равномерно распределить заданное количество петель по длине стороны. */
+export function spreadHinges(count: number, length: number, endOffset = 100): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [Math.round(length / 2)];
+  const first = Math.min(endOffset, length / 2);
   const last  = length - first;
-  if (n === 2) return [first, last];
-  const step  = (last - first) / (n - 1);
-  return Array.from({ length: n }, (_, i) => Math.round(first + i * step));
+  if (count === 2) return [Math.round(first), Math.round(last)];
+  const step  = (last - first) / (count - 1);
+  return Array.from({ length: count }, (_, i) => Math.round(first + i * step));
 }

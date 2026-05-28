@@ -179,6 +179,9 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
   color: var(--accent); letter-spacing: -0.02em; line-height: 1;
   display: flex; flex-direction: column; align-items: flex-start;
 }
+/* Поменялись местами: value слева, mirror справа */
+.wheel-block--swap .wheel-readout { align-items: flex-start; }
+.wheel-block--swap .wheel-mirror  { align-items: flex-end; }
 .wheel-mirror .unit {
   font-size: 11px; font-weight: 400; color: var(--muted);
   margin-left: 4px;

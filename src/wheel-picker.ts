@@ -16,6 +16,8 @@ export interface WheelPickerOpts {
   snapPoints?: number[];
   /** Радиус притяжения, мм (дефолт 6) */
   snapTolerance?: number;
+  /** Если true — value-readout слева, mirror справа (по умолчанию value справа) */
+  valueOnLeft?: boolean;
   onChange: (v: number) => void;
 }
 
@@ -59,8 +61,12 @@ export class WheelPicker {
     this.lastHapticValue = o.value;
 
     const block = document.createElement('div');
-    block.className = 'wheel-block';
-    const mirrorHtml = this.mirrorMax !== null
+    block.className = 'wheel-block' + (o.valueOnLeft ? ' wheel-block--swap' : '');
+    const valueHtml = `<div class="wheel-readout">
+        <span class="readout"></span><span class="unit">${this.unit}</span>
+        ${this.mirrorMax !== null ? `<span class="mirror-label">${o.name}</span>` : ''}
+      </div>`;
+    const leftHtml = this.mirrorMax !== null
       ? `<div class="wheel-mirror">
            <span class="mirror-readout">0</span><span class="unit">${this.unit}</span>
            ${o.mirrorLabel ? `<span class="mirror-label">${o.mirrorLabel}</span>` : ''}
@@ -69,18 +75,19 @@ export class WheelPicker {
            ${o.axis ? `<span class="wheel-axis">${o.axis}</span>` : ''}
            <span class="wheel-name">${o.name}</span>
          </div>`;
+    // По умолчанию value справа, mirror слева. valueOnLeft=true — наоборот.
+    const headerInner = o.valueOnLeft
+      ? `${valueHtml}${leftHtml}`
+      : `${leftHtml}${valueHtml}`;
     block.innerHTML = `
       <div class="wheel-header">
-        ${mirrorHtml}
-        <div class="wheel-readout">
-          <span class="readout"></span><span class="unit">${this.unit}</span>
-          ${this.mirrorMax !== null ? `<span class="mirror-label">${o.name}</span>` : ''}
-        </div>
+        ${headerInner}
       </div>
       <div class="wheel-track">
         <canvas class="wheel-canvas"></canvas>
         <div class="wheel-center"></div>
       </div>`;
+    // Выравнивание readout'ов под их визуальную сторону
     o.parent.appendChild(block);
 
     this.track     = block.querySelector('.wheel-track') as HTMLDivElement;
