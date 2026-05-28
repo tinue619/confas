@@ -300,7 +300,7 @@ function mountMaterialTool(area: HTMLElement, fs: FacadeState, refresh: () => vo
 }
 
 function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
-  toolHeader(area, 'Петли и присадка', 'Тап по петле — изменить · по краю — добавить');
+  toolHeader(area, 'Петли и присадка', 'Тап — править · край — добавить');
 
   if (!model.drilling || !model.hinges) {
     const note = document.createElement('div');

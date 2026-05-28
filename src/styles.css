@@ -102,17 +102,21 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
 .tool-header { padding: 0 16px 8px; }
 .tool-header {
   display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-width: 0;
 }
 .tool-title {
   font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text);
-  display: flex; align-items: center; gap: 8px;
+  color: var(--text); white-space: nowrap;
+  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
 }
 .tool-title::before {
   content: ''; width: 3px; height: 12px; background: var(--accent); border-radius: 2px;
+  flex: 0 0 auto;
 }
 .tool-hint {
   font-size: 11px; color: var(--muted2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; text-align: right;
 }
 
 .tool-switcher {
