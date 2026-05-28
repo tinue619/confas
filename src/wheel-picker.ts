@@ -25,6 +25,7 @@ export class WheelPicker {
   private ctx: CanvasRenderingContext2D;
   private readoutEl: HTMLElement;
   private mirrorReadoutEl: HTMLElement | null = null;
+  private centerEl!: HTMLElement;
   private mirrorMax: number | null;
   private min: number; private max: number;
   private value: number;
@@ -85,6 +86,7 @@ export class WheelPicker {
     this.track     = block.querySelector('.wheel-track') as HTMLDivElement;
     this.canvas    = block.querySelector('.wheel-canvas') as HTMLCanvasElement;
     this.ctx       = this.canvas.getContext('2d')!;
+    this.centerEl  = block.querySelector('.wheel-center') as HTMLElement;
     this.readoutEl = block.querySelector('.readout') as HTMLElement;
     this.mirrorReadoutEl = block.querySelector('.mirror-readout');
 
@@ -171,19 +173,29 @@ export class WheelPicker {
 
   update(newValue: number, doCallback = true) {
     let v = Math.round(Math.min(this.max, Math.max(this.min, newValue)));
-    // Магнит к стандартным точкам
+    // Магнит к стандартным точкам с гистерезисом:
+    // если уже залипли — нужно отойти подальше (1.6× tolerance), чтобы отлипнуть.
     if (this.snapPoints.length) {
-      let best = v, bestD = this.snapTolerance + 1;
-      for (const sp of this.snapPoints) {
-        const d = Math.abs(v - sp);
-        if (d <= this.snapTolerance && d < bestD) { best = sp; bestD = d; }
+      const stuck = this.snapPoints.includes(this.value) ? this.value : null;
+      const tol = this.snapTolerance;
+      if (stuck !== null && Math.abs(v - stuck) <= tol * 1.6) {
+        v = stuck;
+      } else {
+        let best = v, bestD = tol + 1;
+        for (const sp of this.snapPoints) {
+          const d = Math.abs(v - sp);
+          if (d <= tol && d < bestD) { best = sp; bestD = d; }
+        }
+        v = best;
       }
-      v = best;
     }
     const changed = v !== this.value;
     this.value = v;
     this.draw();
     this.readoutEl.textContent = String(v);
+    if (this.centerEl) {
+      this.centerEl.classList.toggle('snapped', this.snapPoints.includes(v));
+    }
     if (this.mirrorReadoutEl && this.mirrorMax !== null) {
       this.mirrorReadoutEl.textContent = String(Math.max(0, this.mirrorMax - v));
     }

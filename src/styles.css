@@ -202,10 +202,21 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
   width: 2px; background: var(--accent);
   pointer-events: none; transform: translateX(-50%);
   border-radius: 1px; z-index: 3;
+  transition: box-shadow .15s, background .15s;
 }
 .wheel-center::before {
   content: ''; position: absolute; left: 50%; top: -1px; transform: translateX(-50%);
   width: 8px; height: 8px; background: var(--accent); border-radius: 50%;
+  transition: box-shadow .15s, transform .15s;
+}
+.wheel-center.snapped {
+  background: var(--accent2);
+  box-shadow: 0 0 10px rgba(232,201,142,0.6);
+}
+.wheel-center.snapped::before {
+  background: var(--accent2);
+  box-shadow: 0 0 12px rgba(232,201,142,0.8);
+  transform: translateX(-50%) scale(1.3);
 }
 .wheel-track::before, .wheel-track::after {
   content: ''; position: absolute; top: 0; bottom: 0; width: 56px;

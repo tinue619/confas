@@ -141,7 +141,7 @@ function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => v
   } else if (hit.kind === 'empty') {
     // Добавляем новую петлю с учётом ограничений: 60мм от краёв, 20мм между петлями.
     const sideLen = sideLength(fs);
-    const EDGE_MIN = 60, HINGE_GAP = 20;
+    const EDGE_MIN = 60, HINGE_GAP = 45;
     let mm = Math.max(EDGE_MIN, Math.min(sideLen - EDGE_MIN, hit.mm));
     // Если попадает в зазор 20мм с соседом — сдвигаем; не помещается — отменяем.
     const sorted = [...fs.hingePositions].sort((a, b) => a - b);
@@ -172,7 +172,7 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
   //  • минимум 60мм от любого края;
   //  • минимум 20мм между петлями (по соседям в массиве).
   const EDGE_MIN  = 60;
-  const HINGE_GAP = 20;
+  const HINGE_GAP = 45;
   const editVal = fs.hingePositions[index];
   const others  = fs.hingePositions.filter((_, i) => i !== index).sort((a, b) => a - b);
   const below   = [...others].filter(p => p <= editVal).pop();
@@ -192,7 +192,7 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
       name: labelFromStart, unit: 'мм',
       min: minBound, max: maxBound, value: currentValue,
       mirrorMax: sideLen, mirrorLabel: labelFromEnd,
-      snapPoints, snapTolerance: 8,
+      snapPoints, snapTolerance: 18,
       onChange: v => {
         currentValue = v;
         fs.hingePositions[index] = v;
