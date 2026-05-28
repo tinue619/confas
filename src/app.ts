@@ -517,7 +517,11 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     overlay.classList.add('sheet-overlay--open');
     sheet.classList.add('sheet--open');
   });
-  overlay.onclick = close;
+  // pointerdown, а не click — иначе click от исходного тапа (открывшего шторку)
+  // приходит уже на overlay и тут же её закрывает.
+  overlay.addEventListener('pointerdown', e => {
+    if (e.target === overlay) close();
+  });
 
   // Drag-to-dismiss (на ручке и заголовке)
   const dragZone = sheet.querySelector('.sheet-drag') as HTMLElement;
