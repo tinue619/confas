@@ -1,4 +1,5 @@
 :root {
+  /* Темная тема (по умолчанию) */
   --bg: #0f0f0f;
   --surface: #181818;
   --surface2: #222222;
@@ -6,6 +7,7 @@
   --border: #2e2e2e;
   --accent: #c8a96e;
   --accent2: #e8c98e;
+  --accent-rgb: 200, 169, 110;
   --text: #f0ede8;
   --muted: #7a7670;
   --muted2: #4a4844;
@@ -14,6 +16,47 @@
   --r: 10px;
   --red: #d04545;
   --green: #22a06b;
+
+  /* Цвета для отрисовки canvas (зависят от темы) */
+  --canvas-stroke:      rgba(0,0,0,0.55);
+  --canvas-stroke-soft: rgba(0,0,0,0.25);
+  --canvas-screw-fill:  rgba(0,0,0,0.72);
+  --canvas-screw-cross: rgba(255,255,255,0.45);
+  --canvas-void:        #0d0c0b;
+  --canvas-dim:         #7a7670;
+  --canvas-dim-dark:    #4a4844;
+  --canvas-text:        #f0ede8;
+  --canvas-text-bg:     #0f0f0f;
+  --canvas-grid:        rgba(255,255,255,0.03);
+  --wheel-tick-minor:   #353330;
+}
+
+[data-theme="light"] {
+  --bg:       #f1ece2;
+  --surface:  #ffffff;
+  --surface2: #faf7f0;
+  --surface3: #ede8dc;
+  --border:   #dfd9c9;
+  --accent:   #a07626;
+  --accent2:  #c8973d;
+  --accent-rgb: 160, 118, 38;
+  --text:     #1c1a16;
+  --muted:    #6e695f;
+  --muted2:   #b3ae9f;
+  --canvas-bg: #e6e1d4;
+  --grid:      rgba(0,0,0,0.04);
+
+  --canvas-stroke:      rgba(0,0,0,0.55);
+  --canvas-stroke-soft: rgba(0,0,0,0.18);
+  --canvas-screw-fill:  rgba(0,0,0,0.72);
+  --canvas-screw-cross: rgba(255,255,255,0.55);
+  --canvas-void:        #807a6d;
+  --canvas-dim:         #6e695f;
+  --canvas-dim-dark:    #b3ae9f;
+  --canvas-text:        #1c1a16;
+  --canvas-text-bg:     #f1ece2;
+  --canvas-grid:        rgba(0,0,0,0.04);
+  --wheel-tick-minor:   #c8c3b3;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -46,8 +89,8 @@ header {
 .price-tag {
   font-family: 'JetBrains Mono', monospace;
   font-size: 14px; font-weight: 600; color: var(--accent);
-  padding: 6px 12px; background: rgba(200,169,110,0.08);
-  border: 1px solid rgba(200,169,110,0.22); border-radius: 8px;
+  padding: 6px 12px; background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.22); border-radius: 8px;
   letter-spacing: -0.02em; line-height: 1.2;
 }
 .price-tag .price-warn { color: var(--red); font-size: 12px; margin-left: 4px; }
@@ -60,6 +103,16 @@ header {
   position: relative; transition: border-color .15s;
 }
 .cart-btn:hover { border-color: var(--surface3); }
+
+.theme-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; cursor: pointer;
+  padding: 0; transition: color .15s, border-color .15s;
+}
+.theme-btn:hover { color: var(--text); border-color: var(--surface3); }
+.theme-btn svg { width: 18px; height: 18px; }
 .cart-btn .cart-icon { display: inline-flex; width: 16px; height: 16px; color: var(--text); }
 .cart-btn .cart-icon svg { width: 100%; height: 100%; }
 .cart-btn .cart-total {
@@ -86,8 +139,8 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
 .canvas-section::before {
   content: ''; position: absolute; inset: 0;
   background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    linear-gradient(var(--canvas-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
   background-size: 24px 24px; pointer-events: none;
 }
 #facade-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
@@ -162,7 +215,7 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
 .wheel-axis {
   font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
   color: var(--accent); letter-spacing: 0.08em;
-  border: 1px solid rgba(200,169,110,0.4); border-radius: 4px;
+  border: 1px solid rgba(var(--accent-rgb), 0.4); border-radius: 4px;
   padding: 1px 5px; line-height: 1.2;
 }
 .wheel-name {
@@ -194,7 +247,7 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
   padding: 0 2px;
   transition: background .12s;
 }
-.editable:hover { background: rgba(200,169,110,0.08); }
+.editable:hover { background: rgba(var(--accent-rgb), 0.08); }
 .readout-input {
   font: inherit; color: inherit;
   background: transparent; border: none; outline: none;
@@ -322,7 +375,7 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
   border-radius: 50%; transition: transform .2s cubic-bezier(0.22, 1, 0.36, 1), background .2s ease;
 }
 .toggle.on {
-  background: rgba(200,169,110,0.18); border-color: rgba(200,169,110,0.4);
+  background: rgba(var(--accent-rgb), 0.18); border-color: rgba(var(--accent-rgb), 0.4);
 }
 .toggle.on::after { transform: translateX(18px); background: var(--accent); }
 

@@ -137,6 +137,15 @@ export class WheelPicker {
     const from = Math.max(this.min, Math.floor(this.value) - halfMm);
     const to   = Math.min(this.max, Math.floor(this.value) + halfMm);
 
+    // Цвета считываем из CSS — реагируем на смену темы.
+    const css = getComputedStyle(document.documentElement);
+    const v = (n: string, fb: string) => (css.getPropertyValue(n) || fb).trim();
+    const colMajor = v('--canvas-dim',      '#7a7670');
+    const colMid   = v('--canvas-dim-dark', '#4a4844');
+    const colMinor = v('--wheel-tick-minor', colMid);
+    const accent   = v('--accent', '#c8a96e');
+    const accentRgb = v('--accent-rgb', '200, 169, 110');
+
     ctx.lineCap = 'butt';
 
     for (let mm = from; mm <= to; mm++) {
@@ -144,20 +153,19 @@ export class WheelPicker {
       const isMajor = mm % 100 === 0;
       const isMid   = !isMajor && mm % 10 === 0;
       let len: number; let color: string; let lw: number;
-      if (isMajor)      { len = 20; color = 'rgba(122,118,112,1)';  lw = 1.5; }
-      else if (isMid)   { len = 14; color = 'rgba(74,72,68,1)';     lw = 1; }
-      else              { len = 8;  color = 'rgba(53,51,48,1)';     lw = 1; }
+      if (isMajor)      { len = 20; color = colMajor; lw = 1.5; }
+      else if (isMid)   { len = 14; color = colMid;   lw = 1; }
+      else              { len = 8;  color = colMinor; lw = 1; }
       ctx.strokeStyle = color;
       ctx.lineWidth = lw;
       ctx.beginPath();
-      // Чёткие линии: на нечётной толщине сдвигаем на 0.5
       const px = lw < 1.5 ? Math.round(x) + 0.5 : Math.round(x);
       ctx.moveTo(px, cy - len / 2);
       ctx.lineTo(px, cy + len / 2);
       ctx.stroke();
 
       if (isMajor) {
-        ctx.fillStyle = 'rgba(74,72,68,1)';
+        ctx.fillStyle = colMid;
         ctx.font = '500 10px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
@@ -169,14 +177,12 @@ export class WheelPicker {
     for (const sp of this.snapPoints) {
       if (sp < from || sp > to) continue;
       const x = Math.round(cx + (sp - this.value) * this.pxPerMm);
-      // Светящийся фон
       const grad = ctx.createRadialGradient(x, cy, 0, x, cy, 14);
-      grad.addColorStop(0, 'rgba(200,169,110,0.25)');
-      grad.addColorStop(1, 'rgba(200,169,110,0)');
+      grad.addColorStop(0, `rgba(${accentRgb}, 0.28)`);
+      grad.addColorStop(1, `rgba(${accentRgb}, 0)`);
       ctx.fillStyle = grad;
       ctx.fillRect(x - 14, 0, 28, h);
-      // Якорный треугольник сверху
-      ctx.fillStyle = 'rgba(200,169,110,1)';
+      ctx.fillStyle = accent;
       ctx.beginPath();
       ctx.moveTo(x, cy - 10);
       ctx.lineTo(x - 4, cy - 16);
