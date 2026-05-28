@@ -256,7 +256,7 @@ function mountSizeTool(area: HTMLElement, fs: FacadeState, model: any, refresh: 
 }
 
 function mountMaterialTool(area: HTMLElement, fs: FacadeState, refresh: () => void) {
-  toolHeader(area, 'Материалы', 'Свайп для выбора');
+  toolHeader(area, 'Материалы', 'Тап для выбора');
 
   new Carousel<ProfileColor>({
     parent: area, name: 'Цвет профиля',
