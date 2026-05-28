@@ -279,19 +279,23 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
 }
 .carousel-track::-webkit-scrollbar { display: none; }
 .carousel-item {
+  position: relative;
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px;
-  background: transparent; border: 1px solid var(--border); border-radius: 999px;
+  padding: 8px 6px 10px;
+  background: transparent; border: none;
   color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 500;
   white-space: nowrap; cursor: pointer;
-  transition: color .12s, background .12s, border-color .12s;
+  transition: color .12s;
 }
-.carousel-item:hover { color: var(--text); border-color: var(--surface3); }
-.carousel-item.active {
-  color: var(--accent); font-weight: 600;
-  border-color: rgba(200,169,110,0.5);
-  background: rgba(200,169,110,0.08);
+.carousel-item::after {
+  content: ''; position: absolute; bottom: 2px; left: 50%;
+  width: 0; height: 2px; background: var(--accent); border-radius: 1px;
+  transform: translateX(-50%);
+  transition: width .13s cubic-bezier(0.3, 0.85, 0.25, 1);
 }
+.carousel-item:hover { color: var(--text); }
+.carousel-item.active { color: var(--accent); font-weight: 600; }
+.carousel-item.active::after { width: calc(100% - 12px); }
 .carousel-swatch {
   width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.18);
