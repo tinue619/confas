@@ -116,7 +116,7 @@ export function mountApp(root: HTMLElement) {
       (el as HTMLElement).classList.toggle('active', tools[i].id === activeTool);
     });
     toolArea.innerHTML = '';
-    if (activeTool === 'size')     mountSizeTool(toolArea, fs, refresh);
+    if (activeTool === 'size')     mountSizeTool(toolArea, fs, model, refresh);
     if (activeTool === 'material') mountMaterialTool(toolArea, fs, refresh);
     if (activeTool === 'hinges')   mountHingesTool(toolArea, fs, model, refresh);
   }
@@ -230,17 +230,28 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
 
 // ─── Инструменты ──────────────────────────────────────────────────────────────
 
-function mountSizeTool(area: HTMLElement, fs: FacadeState, refresh: () => void) {
+function mountSizeTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
   toolHeader(area, 'Размеры фасада', 'Прокрути · 1мм');
+  // При изменении размера переразлагаем петли, если сторона, на которой они стоят,
+  // зависит от изменившегося измерения.
+  const respread = (affectsAxis: 'h' | 'v') => {
+    if (!model.hinges || fs.hingePositions.length === 0) return;
+    const isVertical = fs.hingeSide === 'left' || fs.hingeSide === 'right';
+    if (affectsAxis === 'h' && !isVertical) {
+      fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.width, model.hinges.endOffset ?? 100);
+    } else if (affectsAxis === 'v' && isVertical) {
+      fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.height, model.hinges.endOffset ?? 100);
+    }
+  };
   new WheelPicker({
     parent: area, axis: 'X', name: 'Ширина', unit: 'мм',
     min: 100, max: 2250, value: fs.width,
-    onChange: v => { fs.width = v; refresh(); },
+    onChange: v => { fs.width = v; respread('h'); refresh(); },
   });
   new WheelPicker({
     parent: area, axis: 'Y', name: 'Высота', unit: 'мм',
     min: 100, max: 3210, value: fs.height,
-    onChange: v => { fs.height = v; refresh(); },
+    onChange: v => { fs.height = v; respread('v'); refresh(); },
   });
 }
 
