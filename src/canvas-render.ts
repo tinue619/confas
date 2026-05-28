@@ -3,7 +3,9 @@
 
 import type { FacadeState, HingeSide } from './state';
 import type { FacadeModel } from './model';
-import { GLASS_COLORS } from './catalog';
+import { GLASS_COLORS, PROFILE_COLORS } from './catalog';
+
+const GLASS_INSET_MM = 4; // отступ стекла от наружного края изделия, мм
 
 const ACCENT = '#c8a96e';
 const COLOR_DIM = '#7a7670';
@@ -85,7 +87,7 @@ export class FacadeRenderer {
     const ry = Math.round(padT + (availH - rh) / 2);
     this.rect = { x: rx, y: ry, w: rw, h: rh, scale };
 
-    this.drawFacadeBody(rx, ry, rw, rh);
+    this.drawFacadeBody(rx, ry, rw, rh, scale);
     this.drawGlassArea(rx, ry, rw, rh, scale);
     this.drawHingesAndDrillings(rx, ry, rw, rh, scale);
     this.drawDimensions(rx, ry, rw, rh, W, H);
@@ -109,55 +111,105 @@ export class FacadeRenderer {
 
   // ── Drawing ────────────────────────────────────────────────────────────
 
-  private drawFacadeBody(rx: number, ry: number, rw: number, rh: number) {
+  private drawFacadeBody(rx: number, ry: number, rw: number, rh: number, scale: number) {
     const ctx = this.ctx;
+    // Видимая ширина рамы профиля в пикселях. Реальные 4мм могут быть слишком узкими
+    // на маленьких канвасах — выдерживаем минимум ~7px для читаемости.
+    const inset = Math.max(7, GLASS_INSET_MM * scale);
+    const profileHex = PROFILE_COLORS[this.state.profileColor]?.hex ?? '#888';
+
+    // Тёмная подложка под фасад (фон в проёме до отрисовки стекла)
     ctx.save();
-    ctx.shadowColor = 'rgba(200,169,110,0.14)';
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetY = 6;
-    const grad = ctx.createLinearGradient(rx, ry, rx + rw, ry + rh);
-    grad.addColorStop(0, '#2a2621');
-    grad.addColorStop(0.5, '#1e1c19');
-    grad.addColorStop(1, '#161412');
-    ctx.fillStyle = grad;
+    ctx.fillStyle = '#1a1815';
     ctx.fillRect(rx, ry, rw, rh);
     ctx.restore();
-    ctx.strokeStyle = ACCENT;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(rx + 0.5, ry + 0.5, rw, rh);
 
-    // Угловые «уголки» как в прототипе
-    const clen = Math.min(14, rw * 0.08, rh * 0.08);
-    ctx.lineWidth = 2;
-    const corners: [number, number, number, number][] = [
-      [rx,      ry,      1,  1],
-      [rx + rw, ry,     -1,  1],
-      [rx,      ry + rh, 1, -1],
-      [rx + rw, ry + rh, -1, -1],
+    // Заливка рамы — четыре трапеции (миты по углам)
+    const outer = [
+      [rx, ry], [rx + rw, ry], [rx + rw, ry + rh], [rx, ry + rh],
     ];
-    corners.forEach(([x, y, dx, dy]) => {
+    const inner = [
+      [rx + inset, ry + inset],
+      [rx + rw - inset, ry + inset],
+      [rx + rw - inset, ry + rh - inset],
+      [rx + inset, ry + rh - inset],
+    ];
+    ctx.save();
+    ctx.fillStyle = profileHex;
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
       ctx.beginPath();
-      ctx.moveTo(x + dx * clen, y);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x, y + dy * clen);
+      ctx.moveTo(outer[i][0], outer[i][1]);
+      ctx.lineTo(outer[j][0], outer[j][1]);
+      ctx.lineTo(inner[j][0], inner[j][1]);
+      ctx.lineTo(inner[i][0], inner[i][1]);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Контуры: наружный и внутренний, плюс 45° запилы (от наружного угла к внутреннему)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+    ctx.strokeRect(rx + inset + 0.5, ry + inset + 0.5, rw - inset * 2 - 1, rh - inset * 2 - 1);
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(outer[i][0] + 0.5, outer[i][1] + 0.5);
+      ctx.lineTo(inner[i][0] + 0.5, inner[i][1] + 0.5);
       ctx.stroke();
-    });
+    }
+    ctx.restore();
+
+    // Саморезы — 2 на каждый угол (по одному на каждой смежной стороне рядом с углом)
+    const screwR = Math.max(2.2, Math.min(inset * 0.32, 3.5));
+    const screwOff = Math.max(14, inset * 2.5); // расстояние от угла вдоль ребра
+    const halfBand = inset / 2;
+    const screws: [number, number][] = [
+      // top edge
+      [rx + screwOff, ry + halfBand],
+      [rx + rw - screwOff, ry + halfBand],
+      // bottom edge
+      [rx + screwOff, ry + rh - halfBand],
+      [rx + rw - screwOff, ry + rh - halfBand],
+      // left edge
+      [rx + halfBand, ry + screwOff],
+      [rx + halfBand, ry + rh - screwOff],
+      // right edge
+      [rx + rw - halfBand, ry + screwOff],
+      [rx + rw - halfBand, ry + rh - screwOff],
+    ];
+    for (const [sx, sy] of screws) this.drawScrew(sx, sy, screwR);
+  }
+
+  private drawScrew(x: number, y: number, r: number) {
+    const ctx = this.ctx;
+    ctx.save();
+    // Внешний круг — тёмный
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    // Крестообразный шлиц
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 0.9;
+    const d = r * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(x - d, y - d); ctx.lineTo(x + d, y + d);
+    ctx.moveTo(x + d, y - d); ctx.lineTo(x - d, y + d);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawGlassArea(rx: number, ry: number, rw: number, rh: number, scale: number) {
     const ctx = this.ctx;
-    const frameVis = Math.max(0, -this.model.glassEdgeY);
-    const inset = frameVis * scale;
+    const inset = Math.max(7, GLASS_INSET_MM * scale);
     if (inset * 2 >= rw || inset * 2 >= rh) return;
     const gx = rx + inset, gy = ry + inset;
     const gw = rw - inset * 2, gh = rh - inset * 2;
     const glassHex = GLASS_COLORS[this.state.glassColor]?.hex ?? '#c4d8de';
     ctx.save();
-    ctx.fillStyle = hexToRgba(glassHex, this.state.glassType === 'matte' ? 0.18 : 0.12);
+    ctx.fillStyle = hexToRgba(glassHex, this.state.glassType === 'matte' ? 0.22 : 0.14);
     ctx.fillRect(gx, gy, gw, gh);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(gx + 0.5, gy + 0.5, gw, gh);
     ctx.restore();
   }
 
