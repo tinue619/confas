@@ -190,7 +190,7 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
       name: labelFromStart, unit: 'мм',
       min: minBound, max: maxBound, value: currentValue,
       mirrorMax: sideLen, mirrorLabel: labelFromEnd,
-      snapPoints, snapTolerance: 18,
+      snapPoints, snapTolerance: 8,
       // Для горизонтальных сторон «слева» должно быть визуально слева.
       // value-readout = «слева» (от начала), значит он идёт в левую колонку.
       valueOnLeft: !isVertical,

@@ -185,7 +185,7 @@ export class WheelPicker {
     if (this.snapPoints.length) {
       const stuck = this.snapPoints.includes(this.value) ? this.value : null;
       const tol = this.snapTolerance;
-      if (stuck !== null && Math.abs(v - stuck) <= tol * 1.6) {
+      if (stuck !== null && Math.abs(v - stuck) <= tol * 1.25) {
         v = stuck;
       } else {
         let best = v, bestD = tol + 1;
