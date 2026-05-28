@@ -246,12 +246,12 @@ function mountSizeTool(area: HTMLElement, fs: FacadeState, model: any, refresh: 
   };
   new WheelPicker({
     parent: area, axis: 'X', name: 'Ширина', unit: 'мм',
-    min: 100, max: 2250, value: fs.width,
+    min: 250, max: 2250, value: fs.width,
     onChange: v => { fs.width = v; respread('h'); refresh(); },
   });
   new WheelPicker({
     parent: area, axis: 'Y', name: 'Высота', unit: 'мм',
-    min: 100, max: 3210, value: fs.height,
+    min: 250, max: 3210, value: fs.height,
     onChange: v => { fs.height = v; respread('v'); refresh(); },
   });
 }

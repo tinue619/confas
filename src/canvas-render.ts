@@ -172,10 +172,14 @@ export class FacadeRenderer {
     ctx.restore();
 
     // Саморезы — 2 на каждый угол, сидят на видимой раме.
-    // Реальный диаметр 5мм; смещения тоже в мм.
+    // Реальный диаметр 5мм; смещение центра самореза:
+    //  • от стыка (диагонали запила) — 16мм вдоль профиля,
+    //  • от наружного края к середине рамы — половина ширины (22мм).
+    // При сидении по центру рамы (y = frame/2) диагональ пересекает ребро
+    // на x = frame/2, поэтому до угла = frame/2 + 16мм.
     const screwR    = (SCREW_DIAM_MM / 2) * scale;
-    const screwOff  = 22 * scale;                  // 22мм от угла вдоль ребра
-    const screwBand = (FRAME_WIDTH_MM / 2) * scale; // по центру 44мм рамы
+    const screwOff  = (FRAME_WIDTH_MM / 2 + 16) * scale;
+    const screwBand = (FRAME_WIDTH_MM / 2) * scale;
     const screws: [number, number][] = [
       // top edge
       [rx + screwOff, ry + screwBand],

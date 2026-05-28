@@ -9,6 +9,7 @@ export type HingeSide = 'left' | 'right' | 'top' | 'bottom';
 export class FacadeState {
   width  = 450;
   height = 800;
+  static readonly MIN_DIM = 250;
   profileColor: ProfileColor = 'inox';
   glassColor:   GlassColor   = 'clear';
   glassType:    GlassType    = 'smooth';
