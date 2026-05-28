@@ -191,9 +191,10 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
       min: minBound, max: maxBound, value: currentValue,
       mirrorMax: sideLen, mirrorLabel: labelFromEnd,
       snapPoints, snapTolerance: 4,
-      // Для горизонтальных сторон «слева» должно быть визуально слева.
-      // value-readout = «слева» (от начала), значит он идёт в левую колонку.
-      valueOnLeft: !isVertical,
+      // Value-readout всегда уходит в левую колонку:
+      //   • для горизонтальных сторон → «слева» слева, «справа» справа
+      //   • для вертикальных          → «снизу» слева, «сверху» справа
+      valueOnLeft: true,
       onChange: v => {
         currentValue = v;
         fs.hingePositions[index] = v;

@@ -122,9 +122,9 @@ export class Carousel<T> {
     const i = Math.max(0, Math.min(this.items.length - 1, index));
     const targetOffset = -this.positions[i];
     this.offset = targetOffset;
-    this.tape.style.transition = 'transform .22s cubic-bezier(0.22, 1, 0.36, 1)';
+    this.tape.style.transition = 'transform .13s cubic-bezier(0.3, 0.85, 0.25, 1)';
     this.tape.style.transform = `translateX(${this.offset}px)`;
-    setTimeout(() => { this.tape.style.transition = ''; }, 240);
+    setTimeout(() => { this.tape.style.transition = ''; }, 150);
     this.highlightItem(i);
     this.updateSpotlight(i);
     const newValue = this.items[i].value;
@@ -200,8 +200,9 @@ export class Carousel<T> {
       this.offset = this.clamp(this.offset + v * dt);
       this.tape.style.transform = `translateX(${this.offset}px)`;
       this.highlightItem(this.nearestIndex(this.offset));
-      v *= Math.pow(0.94, dt / 16);
-      if (Math.abs(v) < 0.02) { this.snapTo(this.nearestIndex(this.offset)); return; }
+      // Более резкое затухание — лента быстро «доезжает» до ближайшего пункта.
+      v *= Math.pow(0.86, dt / 16);
+      if (Math.abs(v) < 0.06) { this.snapTo(this.nearestIndex(this.offset)); return; }
       this.momentumId = requestAnimationFrame(tick);
     };
     this.momentumId = requestAnimationFrame(tick);

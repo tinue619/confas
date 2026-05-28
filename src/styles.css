@@ -267,7 +267,7 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
   height: 2px; width: 100px;
   background: var(--accent); border-radius: 1px;
   pointer-events: none; z-index: 0;
-  transition: width .22s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width .13s cubic-bezier(0.3, 0.85, 0.25, 1);
 }
 .carousel-track::before, .carousel-track::after {
   content: ''; position: absolute; top: 0; bottom: 0; width: 44px;
