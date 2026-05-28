@@ -31,8 +31,15 @@ export class FacadeRenderer {
   private hingePositionsPx: { x: number; y: number }[] = [];
   /** Геометрия фасадного прямоугольника в css px */
   private rect = { x: 0, y: 0, w: 0, h: 0, scale: 1 };
+  /** Индекс петли, открытой в редакторе — её размеры подсвечиваются */
+  private editingHingeIndex: number | null = null;
 
   onTap: ((hit: Hit) => void) | null = null;
+
+  setEditingHinge(index: number | null) {
+    this.editingHingeIndex = index;
+    this.redraw();
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -41,6 +48,11 @@ export class FacadeRenderer {
     this.ctx = c;
     this.container = canvas.parentElement!;
     canvas.addEventListener('pointerdown', this.onPointerDown);
+
+    // Авто-перерисовка при любых изменениях размера контейнера
+    // (переключение вкладок, изменение окна, появление клавиатуры и т.д.)
+    const ro = new ResizeObserver(() => this.redraw());
+    ro.observe(this.container);
   }
 
   setState(s: FacadeState) { this.state = s; }
@@ -164,15 +176,23 @@ export class FacadeRenderer {
       const py = ry + rh - mmY * scale;
       this.hingePositionsPx.push({ x: px, y: py });
 
+      const isEditing = this.editingHingeIndex === i;
       // Тёмный круг = присадка
       ctx.save();
+      // Подсветка-«ореол» для редактируемой петли
+      if (isEditing) {
+        ctx.beginPath();
+        ctx.arc(px, py, r + 6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,169,110,0.18)';
+        ctx.fill();
+      }
       ctx.beginPath();
       ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fillStyle = COLOR_BG_DARK;
       ctx.fill();
       // Контур
-      ctx.strokeStyle = this.state.hingeMode === 'holes+hinges' ? ACCENT : COLOR_DIM;
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = (this.state.hingeMode === 'holes+hinges' || isEditing) ? ACCENT : COLOR_DIM;
+      ctx.lineWidth = isEditing ? 1.8 : 1.2;
       ctx.stroke();
       // Крестик в центре (центровка)
       ctx.beginPath();
@@ -312,6 +332,11 @@ export class FacadeRenderer {
     })();
     const offset = HINGE_CHAIN_GAP - 8;
 
+    // Значение редактируемой петли (если есть) — для подсветки соседних сегментов
+    const editVal = this.editingHingeIndex !== null
+      ? this.state.hingePositions[this.editingHingeIndex]
+      : null;
+
     for (let i = 0; i < chain.length - 1; i++) {
       const t1 = chain[i], t2 = chain[i + 1];
       const len = Math.round(t2 - t1);
@@ -323,11 +348,14 @@ export class FacadeRenderer {
       this.drawTick(p1.x, p1.y, a.x, a.y);
       // если последний — рисуем и второй tick (для других сегментов он совпадёт с первым следующего)
       if (i === chain.length - 2) this.drawTick(p2.x, p2.y, b.x, b.y);
-      // dim line
+      // Сегмент примыкает к редактируемой петле — подсвечиваем
+      const isHighlight = editVal !== null && (t1 === editVal || t2 === editVal);
+      const lineCol = isHighlight ? ACCENT : COLOR_DIM_DARK;
+      const textCol = isHighlight ? ACCENT : COLOR_TEXT;
       if (side === 'left' || side === 'right') {
-        this.drawDimLineV(a.x, a.y, b.x, b.y, String(len), COLOR_DIM_DARK, COLOR_TEXT);
+        this.drawDimLineV(a.x, a.y, b.x, b.y, String(len), lineCol, textCol);
       } else {
-        this.drawDimLine(a.x, a.y, b.x, b.y, String(len), COLOR_DIM_DARK, COLOR_TEXT);
+        this.drawDimLine(a.x, a.y, b.x, b.y, String(len), lineCol, textCol);
       }
     }
     ctx.restore();

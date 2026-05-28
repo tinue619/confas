@@ -16,6 +16,15 @@ import { Carousel } from './carousel';
 
 type ToolId = 'size' | 'material' | 'hinges';
 
+const ICON = {
+  ruler: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></svg>`,
+  palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></svg>`,
+  wrench: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.1 2.1 0 0 1-3-3l9.4-9.4z"/><path d="M14.7 6.3 17 4l3 3-2.3 2.3"/></svg>`,
+  cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
+  trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
+  redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`,
+};
+
 export function mountApp(root: HTMLElement) {
   root.innerHTML = '';
 
@@ -36,7 +45,7 @@ export function mountApp(root: HTMLElement) {
       <div class="logo">Facade<span>Mod</span></div>
       <div class="price-tag" id="price-tag">—</div>
       <button class="cart-btn" id="cart-btn">
-        <span class="cart-icon">🛒</span>
+        <span class="cart-icon">${ICON.cart}</span>
         <span class="cart-total" id="cart-total">—</span>
       </button>
     </header>
@@ -85,14 +94,14 @@ export function mountApp(root: HTMLElement) {
   };
 
   // ── Tap по canvas ──────────────────────────────────────────────────────
-  renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh);
+  renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh, renderer);
 
   // ── Переключатель инструментов ─────────────────────────────────────────
   let activeTool: ToolId = 'size';
   const tools: { id: ToolId; icon: string; label: string }[] = [
-    { id: 'size',     icon: '📏', label: 'Размеры' },
-    { id: 'material', icon: '🎨', label: 'Материалы' },
-    { id: 'hinges',   icon: '🔧', label: 'Петли' },
+    { id: 'size',     icon: ICON.ruler,   label: 'Размеры' },
+    { id: 'material', icon: ICON.palette, label: 'Материалы' },
+    { id: 'hinges',   icon: ICON.wrench,  label: 'Петли' },
   ];
   for (const t of tools) {
     const b = document.createElement('button');
@@ -125,28 +134,37 @@ export function mountApp(root: HTMLElement) {
 
 // ─── Tap по canvas: петля → редактировать; пустое место по стороне → добавить ─
 
-function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => void) {
+function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => void, renderer: FacadeRenderer) {
   if (!hit) return;
   if (hit.kind === 'hinge') {
-    openHingeEditor(fs, model, hit.index, refresh);
+    openHingeEditor(fs, model, hit.index, refresh, renderer);
   } else if (hit.kind === 'empty') {
     // Добавляем новую петлю в этой позиции
     fs.hingePositions.push(hit.mm);
     fs.hingePositions.sort((a, b) => a - b);
     refresh();
     const newIndex = fs.hingePositions.indexOf(hit.mm);
-    openHingeEditor(fs, model, newIndex, refresh);
+    openHingeEditor(fs, model, newIndex, refresh, renderer);
   }
 }
 
-function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: () => void) {
+function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: () => void, renderer?: FacadeRenderer) {
   const sideLen = sideLength(fs);
+  renderer?.setEditingHinge(index);
+  // Подписи зависят от стороны: для вертикальных рёбер — снизу/сверху,
+  // для горизонтальных — слева/справа.
+  const isVertical = fs.hingeSide === 'left' || fs.hingeSide === 'right';
+  const labelFromStart = isVertical ? 'снизу' : 'слева';
+  const labelFromEnd   = isVertical ? 'сверху' : 'справа';
+
   openSheet(`Петля #${index + 1}`, (body, close) => {
     let currentValue = fs.hingePositions[index];
 
     new WheelPicker({
-      parent: body, axis: 'L', name: 'Позиция от начала стороны',
-      unit: 'мм', min: 0, max: sideLen, value: currentValue,
+      parent: body,
+      name: labelFromStart, unit: 'мм',
+      min: 0, max: sideLen, value: currentValue,
+      mirrorMax: sideLen, mirrorLabel: labelFromEnd,
       onChange: v => {
         currentValue = v;
         fs.hingePositions[index] = v;
@@ -159,7 +177,7 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
 
     const del = document.createElement('button');
     del.className = 'btn btn-danger';
-    del.textContent = '🗑 Удалить';
+    del.innerHTML = `<span class="btn-icon">${ICON.trash}</span>Удалить`;
     del.onclick = () => {
       fs.hingePositions.splice(index, 1);
       close();
@@ -173,7 +191,7 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
 
     btns.append(del, ok);
     body.appendChild(btns);
-  });
+  }, { dim: false, onClose: () => renderer?.setEditingHinge(null) });
   // Suppress unused
   void model;
 }
@@ -238,8 +256,7 @@ function mountMaterialTool(area: HTMLElement, fs: FacadeState, refresh: () => vo
 }
 
 function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
-  toolHeader(area, 'Петли и присадка',
-    fs.hingeMode === 'none' ? '' : 'Тап по петле — изменить · по краю — добавить');
+  toolHeader(area, 'Петли и присадка', 'Тап по петле — изменить · по краю — добавить');
 
   if (!model.drilling || !model.hinges) {
     const note = document.createElement('div');
@@ -249,24 +266,16 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     return;
   }
 
-  new Carousel({
-    parent: area, name: 'Режим',
-    items: [
-      { value: 'none',         label: 'Без петель' },
-      { value: 'holes',        label: 'Только присадка' },
-      { value: 'holes+hinges', label: 'Присадка + петли' },
-    ],
-    value: fs.hingeMode,
-    onChange: v => {
-      fs.hingeMode = v as any;
-      if (v !== 'none' && fs.hingePositions.length === 0) {
-        fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
-      }
-      refresh();
-    },
-  });
+  // Режим выбора больше нет — присадка с петлями всегда включены.
+  if (fs.hingeMode === 'none') fs.hingeMode = 'holes+hinges';
+  if (fs.hingePositions.length === 0) {
+    fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
+  }
 
-  if (fs.hingeMode === 'none') return;
+  const remount = () => {
+    area.innerHTML = '';
+    mountHingesTool(area, fs, model, refresh);
+  };
 
   new Carousel<HingeSide>({
     parent: area, name: 'Сторона',
@@ -281,21 +290,20 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
       fs.hingeSide = v;
       fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
       refresh();
+      remount();
     },
   });
 
-  const row = document.createElement('div');
-  row.className = 'btn-row';
+  // Аккуратная текстовая ссылка-кнопка: иконка + лейбл + счётчик
   const reset = document.createElement('button');
-  reset.className = 'btn';
-  reset.textContent = `Авто (${fs.hingePositions.length} шт)`;
+  reset.className = 'link-btn';
+  reset.innerHTML = `<span class="link-btn-icon">${ICON.redo}</span>Расставить автоматически <span class="link-btn-count">${fs.hingePositions.length} шт</span>`;
   reset.onclick = () => {
     fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
     refresh();
-    mountHingesTool(area, fs, model, refresh); // re-render счётчика
+    remount();
   };
-  row.appendChild(reset);
-  area.appendChild(row);
+  area.appendChild(reset);
 }
 
 function toolHeader(area: HTMLElement, title: string, hint = '') {
@@ -349,7 +357,7 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
   if (order.items.length === 0) {
     const e = document.createElement('div');
     e.className = 'cart-empty';
-    e.innerHTML = '<div class="cart-empty-icon">🛒</div>В корзине пусто';
+    e.innerHTML = `<div class="cart-empty-icon">${ICON.cart}</div>В корзине пусто`;
     body.appendChild(e);
     return;
   }
@@ -434,23 +442,32 @@ function configSummary(c: FacadeConfig): string {
 
 // ─── Bottom sheet helper ──────────────────────────────────────────────────────
 
-function openSheet(title: string, render: (body: HTMLElement, close: () => void) => void) {
+interface OpenSheetOpts { dim?: boolean; onClose?: () => void }
+function openSheet(title: string, render: (body: HTMLElement, close: () => void) => void, opts: OpenSheetOpts = {}) {
+  const dim = opts.dim ?? true;
+  const onClose = opts.onClose;
   const overlay = document.createElement('div');
-  overlay.className = 'sheet-overlay';
+  overlay.className = 'sheet-overlay' + (dim ? '' : ' sheet-overlay--nodim');
   const sheet = document.createElement('div');
   sheet.className = 'sheet';
   sheet.innerHTML = `
-    <div class="sheet-handle"><span class="sheet-grip"></span></div>
-    <div class="sheet-header">${title}</div>
+    <div class="sheet-drag">
+      <div class="sheet-handle"><span class="sheet-grip"></span></div>
+      <div class="sheet-header">${title}</div>
+    </div>
     <div class="sheet-body"></div>`;
   const body = sheet.querySelector('.sheet-body') as HTMLElement;
   document.body.append(overlay, sheet);
 
+  let closed = false;
   const close = () => {
+    if (closed) return;
+    closed = true;
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
     setTimeout(() => { overlay.remove(); sheet.remove(); }, 250);
+    onClose?.();
   };
   render(body, close);
   requestAnimationFrame(() => {
@@ -459,15 +476,15 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   });
   overlay.onclick = close;
 
-  // Drag-to-dismiss
-  const handle = sheet.querySelector('.sheet-handle') as HTMLElement;
+  // Drag-to-dismiss (на ручке и заголовке)
+  const dragZone = sheet.querySelector('.sheet-drag') as HTMLElement;
   let startY = 0, dy = 0, dragging = false;
-  handle.addEventListener('pointerdown', e => {
-    dragging = true; startY = e.clientY;
+  dragZone.addEventListener('pointerdown', e => {
+    dragging = true; startY = e.clientY; dy = 0;
     sheet.style.transition = 'none';
-    handle.setPointerCapture(e.pointerId);
+    dragZone.setPointerCapture(e.pointerId);
   });
-  handle.addEventListener('pointermove', e => {
+  dragZone.addEventListener('pointermove', e => {
     if (!dragging) return;
     dy = Math.max(0, e.clientY - startY);
     sheet.style.transform = `translateY(${dy}px)`;
@@ -479,8 +496,8 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     if (dy > 80) close();
     else sheet.style.transform = '';
   };
-  handle.addEventListener('pointerup', onUp);
-  handle.addEventListener('pointercancel', onUp);
+  dragZone.addEventListener('pointerup', onUp);
+  dragZone.addEventListener('pointercancel', onUp);
 }
 
 function fmtMoney(n: number): string {

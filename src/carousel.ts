@@ -21,11 +21,12 @@ const ITEM_WIDTH = 110; // px — ширина каждого айтема (пр
 export class Carousel<T> {
   private track: HTMLDivElement;
   private tape:  HTMLDivElement;
-  private readoutEl: HTMLElement;
+  private spotlight: HTMLDivElement;
   private items: CarouselItem<T>[];
   private onChange: (v: T) => void;
   private value: T;
   private positions: number[] = [];  // координата центра каждого item в ленте
+  private widths: number[] = [];     // ширина каждого item
   private isDragging = false;
   private startX = 0;
   private startOffset = 0;
@@ -45,18 +46,17 @@ export class Carousel<T> {
     block.innerHTML = `
       <div class="carousel-header">
         <div class="carousel-name"></div>
-        <div class="carousel-readout"></div>
       </div>
       <div class="carousel-track">
+        <div class="carousel-spotlight"></div>
         <div class="carousel-tape"></div>
-        <div class="carousel-center"></div>
       </div>`;
     (block.querySelector('.carousel-name') as HTMLElement).textContent = o.name;
     o.parent.appendChild(block);
 
     this.track     = block.querySelector('.carousel-track') as HTMLDivElement;
     this.tape      = block.querySelector('.carousel-tape')  as HTMLDivElement;
-    this.readoutEl = block.querySelector('.carousel-readout') as HTMLElement;
+    this.spotlight = block.querySelector('.carousel-spotlight') as HTMLDivElement;
 
     this.buildItems();
     // После того как DOM в дереве — измеряем позиции
@@ -94,6 +94,21 @@ export class Carousel<T> {
   private measure() {
     const itemsEls = Array.from(this.tape.children) as HTMLElement[];
     this.positions = itemsEls.map(el => el.offsetLeft + el.offsetWidth / 2);
+    this.widths    = itemsEls.map(el => el.offsetWidth);
+  }
+
+  private clamp(off: number): number {
+    if (this.positions.length < 2) return off;
+    const min = -this.positions[this.positions.length - 1];
+    const max = -this.positions[0];
+    if (off > max) return max + (off - max) * 0.35;
+    if (off < min) return min + (off - min) * 0.35;
+    return off;
+  }
+
+  private updateSpotlight(activeIndex: number) {
+    const w = this.widths[activeIndex] ?? 100;
+    this.spotlight.style.width = `${Math.max(w - 12, 60)}px`;
   }
 
   setValue(v: T) {
@@ -107,12 +122,14 @@ export class Carousel<T> {
     const i = Math.max(0, Math.min(this.items.length - 1, index));
     const targetOffset = -this.positions[i];
     this.offset = targetOffset;
+    this.tape.style.transition = 'transform .22s cubic-bezier(0.22, 1, 0.36, 1)';
     this.tape.style.transform = `translateX(${this.offset}px)`;
+    setTimeout(() => { this.tape.style.transition = ''; }, 240);
     this.highlightItem(i);
+    this.updateSpotlight(i);
     const newValue = this.items[i].value;
     const changed = newValue !== this.value;
     this.value = newValue;
-    this.readoutEl.textContent = this.items[i].label;
     if (changed && doCallback) {
       this.onChange(newValue);
       if ((navigator as any).vibrate) (navigator as any).vibrate(1);
@@ -122,6 +139,7 @@ export class Carousel<T> {
   private highlightItem(activeIndex: number) {
     const els = Array.from(this.tape.children) as HTMLElement[];
     els.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+    this.updateSpotlight(activeIndex);
   }
 
   private nearestIndex(offset: number): number {
@@ -157,7 +175,7 @@ export class Carousel<T> {
     if (!this.isDragging) return;
     e.preventDefault();
     const dx = e.clientX - this.startX;
-    this.offset = this.startOffset + dx;
+    this.offset = this.clamp(this.startOffset + dx);
     this.tape.style.transform = `translateX(${this.offset}px)`;
     // Подсвечиваем ближайший центр (без onChange — только визуал)
     this.highlightItem(this.nearestIndex(this.offset));
@@ -179,7 +197,7 @@ export class Carousel<T> {
     let last = performance.now();
     const tick = (now: number) => {
       const dt = now - last; last = now;
-      this.offset += v * dt;
+      this.offset = this.clamp(this.offset + v * dt);
       this.tape.style.transform = `translateX(${this.offset}px)`;
       this.highlightItem(this.nearestIndex(this.offset));
       v *= Math.pow(0.94, dt / 16);
