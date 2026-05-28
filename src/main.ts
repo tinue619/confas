@@ -1,4 +1,4 @@
-import { mountUI } from './ui';
+import { mountApp } from './app';
 
-const app = document.getElementById('app')!;
-mountUI(app);
+const app = document.getElementById('app');
+if (app) mountApp(app);
