@@ -12,6 +12,10 @@ export interface WheelPickerOpts {
   /** Если задано — слева в шапке покажет (mirrorMax - value) с подписью mirrorLabel */
   mirrorMax?: number;
   mirrorLabel?: string;
+  /** Магнитные точки в мм — значение «прилипает» к ним в радиусе snapTolerance */
+  snapPoints?: number[];
+  /** Радиус притяжения, мм (дефолт 6) */
+  snapTolerance?: number;
   onChange: (v: number) => void;
 }
 
@@ -26,6 +30,8 @@ export class WheelPicker {
   private value: number;
   private pxPerMm: number;
   private unit: string;
+  private snapPoints: number[];
+  private snapTolerance: number;
   private onChange: (v: number) => void;
 
   private isDragging = false;
@@ -46,6 +52,8 @@ export class WheelPicker {
     this.pxPerMm = o.pxPerMm ?? 4;
     this.unit = o.unit ?? '';
     this.mirrorMax = o.mirrorMax ?? null;
+    this.snapPoints = (o.snapPoints ?? []).slice().sort((a, b) => a - b);
+    this.snapTolerance = o.snapTolerance ?? 6;
     this.onChange = o.onChange;
     this.lastHapticValue = o.value;
 
@@ -139,21 +147,50 @@ export class WheelPicker {
         ctx.fillText(String(mm), x, cy + len / 2 + 2);
       }
     }
+
+    // Магнитные точки — акцентные маркеры с подсветкой
+    for (const sp of this.snapPoints) {
+      if (sp < from || sp > to) continue;
+      const x = Math.round(cx + (sp - this.value) * this.pxPerMm);
+      // Светящийся фон
+      const grad = ctx.createRadialGradient(x, cy, 0, x, cy, 14);
+      grad.addColorStop(0, 'rgba(200,169,110,0.25)');
+      grad.addColorStop(1, 'rgba(200,169,110,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x - 14, 0, 28, h);
+      // Якорный треугольник сверху
+      ctx.fillStyle = 'rgba(200,169,110,1)';
+      ctx.beginPath();
+      ctx.moveTo(x, cy - 10);
+      ctx.lineTo(x - 4, cy - 16);
+      ctx.lineTo(x + 4, cy - 16);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
   update(newValue: number, doCallback = true) {
-    const clamped = Math.round(Math.min(this.max, Math.max(this.min, newValue)));
-    const changed = clamped !== this.value;
-    this.value = clamped;
-    this.draw();
-    this.readoutEl.textContent = String(clamped);
-    if (this.mirrorReadoutEl && this.mirrorMax !== null) {
-      this.mirrorReadoutEl.textContent = String(Math.max(0, this.mirrorMax - clamped));
+    let v = Math.round(Math.min(this.max, Math.max(this.min, newValue)));
+    // Магнит к стандартным точкам
+    if (this.snapPoints.length) {
+      let best = v, bestD = this.snapTolerance + 1;
+      for (const sp of this.snapPoints) {
+        const d = Math.abs(v - sp);
+        if (d <= this.snapTolerance && d < bestD) { best = sp; bestD = d; }
+      }
+      v = best;
     }
-    if (changed && doCallback) this.onChange(clamped);
-    if (changed && (navigator as any).vibrate && Math.abs(clamped - this.lastHapticValue) >= 1) {
+    const changed = v !== this.value;
+    this.value = v;
+    this.draw();
+    this.readoutEl.textContent = String(v);
+    if (this.mirrorReadoutEl && this.mirrorMax !== null) {
+      this.mirrorReadoutEl.textContent = String(Math.max(0, this.mirrorMax - v));
+    }
+    if (changed && doCallback) this.onChange(v);
+    if (changed && (navigator as any).vibrate && Math.abs(v - this.lastHapticValue) >= 1) {
       (navigator as any).vibrate(1);
-      this.lastHapticValue = clamped;
+      this.lastHapticValue = v;
     }
   }
 
