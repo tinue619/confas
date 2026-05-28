@@ -176,8 +176,10 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
   const minBound = Math.max(EDGE_MIN, (below ?? -Infinity) + HINGE_GAP);
   const maxBound = Math.min(sideLen - EDGE_MIN, (above ?? Infinity) - HINGE_GAP);
 
-  // Магнитные точки = «стандартная» расстановка для текущего количества петель.
-  const standard = autoHingePositions(model.hinges, sideLen);
+  // Магнитные точки = «стандартная» расстановка для ТЕКУЩЕГО количества петель
+  // (не из interval-таблицы модели — там может быть другое число).
+  const endOffset = model.hinges?.endOffset ?? 100;
+  const standard  = spreadHinges(fs.hingePositions.length, sideLen, endOffset);
   const snapPoints = standard.filter(p => p >= minBound && p <= maxBound);
 
   openSheet(`Петля #${index + 1}`, (body, close) => {
