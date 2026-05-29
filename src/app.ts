@@ -193,7 +193,9 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
       parent: body,
       name: labelFromStart, unit: 'мм',
       min: minBound, max: maxBound, value: currentValue,
-      mirrorMax: sideLen, mirrorLabel: labelFromEnd,
+      // Расстояния показываем до СОСЕДНИХ петель. Если соседа нет — до края.
+      valueOffset: below ?? 0,
+      mirrorMax: above ?? sideLen, mirrorLabel: labelFromEnd,
       snapPoints, snapTolerance: 4,
       // Value-readout всегда уходит в левую колонку:
       //   • для горизонтальных сторон → «слева» слева, «справа» справа

@@ -12,6 +12,8 @@ export interface WheelPickerOpts {
   /** Если задано — слева в шапке покажет (mirrorMax - value) с подписью mirrorLabel */
   mirrorMax?: number;
   mirrorLabel?: string;
+  /** Если задано — основное readout показывает (value - valueOffset) вместо абсолюта */
+  valueOffset?: number;
   /** Магнитные точки в мм — значение «прилипает» к ним в радиусе snapTolerance */
   snapPoints?: number[];
   /** Радиус притяжения, мм (дефолт 6) */
@@ -29,6 +31,7 @@ export class WheelPicker {
   private mirrorReadoutEl: HTMLElement | null = null;
   private centerEl!: HTMLElement;
   private mirrorMax: number | null;
+  private valueOffset: number;
   private min: number; private max: number;
   private value: number;
   private pxPerMm: number;
@@ -55,6 +58,7 @@ export class WheelPicker {
     this.pxPerMm = o.pxPerMm ?? 4;
     this.unit = o.unit ?? '';
     this.mirrorMax = o.mirrorMax ?? null;
+    this.valueOffset = o.valueOffset ?? 0;
     this.snapPoints = (o.snapPoints ?? []).slice().sort((a, b) => a - b);
     this.snapTolerance = o.snapTolerance ?? 6;
     this.onChange = o.onChange;
@@ -213,7 +217,7 @@ export class WheelPicker {
     const changed = v !== this.value;
     this.value = v;
     this.draw();
-    this.readoutEl.textContent = String(v);
+    this.readoutEl.textContent = String(Math.max(0, v - this.valueOffset));
     if (this.centerEl) {
       this.centerEl.classList.toggle('snapped', this.snapPoints.includes(v));
     }
@@ -248,16 +252,16 @@ export class WheelPicker {
       if (commit) {
         const raw = parseInt(input.value.replace(/\D/g, ''), 10);
         if (!isNaN(raw)) {
-          const v = which === 'mirror' && this.mirrorMax !== null
-            ? this.mirrorMax - raw
-            : raw;
+          let v: number;
+          if (which === 'mirror' && this.mirrorMax !== null) v = this.mirrorMax - raw;
+          else                                                v = raw + this.valueOffset;
           this.update(v);
         }
       }
-      // Восстанавливаем текстовое содержимое — update() уже выставит правильные значения
-      target.textContent = String(which === 'value'
-        ? this.value
-        : (this.mirrorMax !== null ? Math.max(0, this.mirrorMax - this.value) : 0));
+      // Восстанавливаем отображаемое содержимое
+      target.textContent = which === 'value'
+        ? String(Math.max(0, this.value - this.valueOffset))
+        : (this.mirrorMax !== null ? String(Math.max(0, this.mirrorMax - this.value)) : '0');
     };
 
     input.addEventListener('keydown', e => {
