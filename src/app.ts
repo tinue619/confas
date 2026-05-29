@@ -14,10 +14,9 @@ import { FacadeRenderer, type Hit } from './canvas-render';
 import { WheelPicker } from './wheel-picker';
 import { Carousel } from './carousel';
 
-type ToolId = 'size' | 'material' | 'hinges';
+type ToolId = 'material' | 'hinges';
 
 const ICON = {
-  ruler: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></svg>`,
   palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></svg>`,
   wrench: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.1 2.1 0 0 1-3-3l9.4-9.4z"/><path d="M14.7 6.3 17 4l3 3-2.3 2.3"/></svg>`,
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
@@ -125,9 +124,8 @@ export function mountApp(root: HTMLElement) {
   renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh, renderer);
 
   // ── Переключатель инструментов ─────────────────────────────────────────
-  let activeTool: ToolId = 'size';
+  let activeTool: ToolId = 'material';
   const tools: { id: ToolId; icon: string; label: string }[] = [
-    { id: 'size',     icon: ICON.ruler,   label: 'Размеры' },
     { id: 'material', icon: ICON.palette, label: 'Материалы' },
     { id: 'hinges',   icon: ICON.wrench,  label: 'Петли' },
   ];
@@ -144,7 +142,6 @@ export function mountApp(root: HTMLElement) {
       (el as HTMLElement).classList.toggle('active', tools[i].id === activeTool);
     });
     toolArea.innerHTML = '';
-    if (activeTool === 'size')     mountSizeTool(toolArea, fs, model, refresh);
     if (activeTool === 'material') mountMaterialTool(toolArea, fs, refresh);
     if (activeTool === 'hinges')   mountHingesTool(toolArea, fs, model, refresh);
   }
@@ -273,14 +270,6 @@ function respreadHinges(fs: FacadeState, model: any, affectsAxis: 'h' | 'v') {
   } else if (affectsAxis === 'v' && isVertical) {
     fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.height, model.hinges.endOffset ?? 100);
   }
-}
-
-function mountSizeTool(area: HTMLElement, _fs: FacadeState, _model: any, _refresh: () => void) {
-  toolHeader(area, 'Размеры фасада', 'Тап по размеру на чертеже');
-  const hint = document.createElement('div');
-  hint.style.cssText = 'padding: 18px 16px 24px; color: var(--muted2); font-size: 12px; text-align: center;';
-  hint.textContent = 'Тапни «600 мм» или «716 мм» на чертеже, чтобы изменить';
-  area.appendChild(hint);
 }
 
 function openDimensionEditor(fs: FacadeState, model: any, axis: 'width' | 'height', refresh: () => void) {
