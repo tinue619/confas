@@ -608,12 +608,17 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     closed = true;
     if (activeSheetClose === close) activeSheetClose = null;
     sheetRo.disconnect();
-    document.documentElement.style.removeProperty('--sheet-h');
-    document.body.classList.remove('has-sheet');
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
-    setTimeout(() => { overlay.remove(); sheet.remove(); }, 250);
+    // Шторка едет вниз — оставляем padding-bottom, чтобы canvas не подрос «через» неё.
+    // После анимации убираем — canvas мгновенно расширяется.
+    setTimeout(() => {
+      document.documentElement.style.removeProperty('--sheet-h');
+      document.body.classList.remove('has-sheet');
+      overlay.remove();
+      sheet.remove();
+    }, 250);
     onClose?.();
   };
   activeSheetClose = close;

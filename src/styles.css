@@ -126,7 +126,6 @@ header {
 main {
   flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
   padding-bottom: var(--sheet-h, 0);
-  transition: padding-bottom .25s ease;
 }
 /* Когда открыта шторка — отдаём её зоне tool-area + switcher, canvas растёт */
 body.has-sheet .tool-area,
