@@ -50,7 +50,9 @@ const EMPTY_HIT_BAND = 22;   // px от ребра, где tap считаетс�
 export interface HingeHit { kind: 'hinge'; index: number; }
 export interface EmptyHit { kind: 'empty'; mm: number; }
 export interface DimHit { kind: 'dim'; axis: 'width' | 'height'; }
-export type Hit = HingeHit | EmptyHit | DimHit | null;
+export interface ProfileHit { kind: 'profile' }
+export interface GlassHit { kind: 'glass' }
+export type Hit = HingeHit | EmptyHit | DimHit | ProfileHit | GlassHit | null;
 
 export class FacadeRenderer {
   private canvas: HTMLCanvasElement;
@@ -61,7 +63,7 @@ export class FacadeRenderer {
   /** Координаты центров петель в css px после последней отрисовки */
   private hingePositionsPx: { x: number; y: number }[] = [];
   /** Геометрия фасадного прямоугольника в css px */
-  private rect = { x: 0, y: 0, w: 0, h: 0, scale: 1 };
+  private rect = { x: 0, y: 0, w: 0, h: 0, scale: 1, frame: 0 };
   /** Прямоугольники зон-тапа на размерных надписях (для open editor) */
   private dimRects: { axis: 'width' | 'height'; x: number; y: number; w: number; h: number }[] = [];
   /** Индекс петли, открытой в редакторе — её размеры подсвечиваются */
@@ -118,7 +120,7 @@ export class FacadeRenderer {
     const rh = Math.round(H * scale);
     const rx = Math.round(padL + (availW - rw) / 2);
     const ry = Math.round(padT + (availH - rh) / 2);
-    this.rect = { x: rx, y: ry, w: rw, h: rh, scale };
+    this.rect = { x: rx, y: ry, w: rw, h: rh, scale, frame: FRAME_WIDTH_MM * scale };
 
     this.drawFacadeBody(rx, ry, rw, rh, scale);
     this.drawHingesAndDrillings(rx, ry, rw, rh, scale);
@@ -486,35 +488,45 @@ export class FacadeRenderer {
       }
     }
 
-    // 3. Попадание в полосу вдоль стороны (только если режим включён)
-    if (this.state.hingeMode === 'none' || !this.model.drilling) return null;
     const r = this.rect;
-    const side = this.state.hingeSide;
-    const eo = this.model.drilling.edgeOffset * r.scale;
-    let mm = -1;
-    switch (side) {
-      case 'left':
-        if (Math.abs(x - (r.x + eo)) <= EMPTY_HIT_BAND && y >= r.y && y <= r.y + r.h) {
-          mm = (r.y + r.h - y) / r.scale;
-        }
-        break;
-      case 'right':
-        if (Math.abs(x - (r.x + r.w - eo)) <= EMPTY_HIT_BAND && y >= r.y && y <= r.y + r.h) {
-          mm = (r.y + r.h - y) / r.scale;
-        }
-        break;
-      case 'top':
-        if (Math.abs(y - (r.y + eo)) <= EMPTY_HIT_BAND && x >= r.x && x <= r.x + r.w) {
-          mm = (x - r.x) / r.scale;
-        }
-        break;
-      case 'bottom':
-        if (Math.abs(y - (r.y + r.h - eo)) <= EMPTY_HIT_BAND && x >= r.x && x <= r.x + r.w) {
-          mm = (x - r.x) / r.scale;
-        }
-        break;
+    // 3. Полоса вдоль стороны для добавления петли (только если есть drilling)
+    if (this.state.hingeMode !== 'none' && this.model.drilling) {
+      const side = this.state.hingeSide;
+      const eo = this.model.drilling.edgeOffset * r.scale;
+      let mm = -1;
+      switch (side) {
+        case 'left':
+          if (Math.abs(x - (r.x + eo)) <= EMPTY_HIT_BAND && y >= r.y && y <= r.y + r.h) {
+            mm = (r.y + r.h - y) / r.scale;
+          }
+          break;
+        case 'right':
+          if (Math.abs(x - (r.x + r.w - eo)) <= EMPTY_HIT_BAND && y >= r.y && y <= r.y + r.h) {
+            mm = (r.y + r.h - y) / r.scale;
+          }
+          break;
+        case 'top':
+          if (Math.abs(y - (r.y + eo)) <= EMPTY_HIT_BAND && x >= r.x && x <= r.x + r.w) {
+            mm = (x - r.x) / r.scale;
+          }
+          break;
+        case 'bottom':
+          if (Math.abs(y - (r.y + r.h - eo)) <= EMPTY_HIT_BAND && x >= r.x && x <= r.x + r.w) {
+            mm = (x - r.x) / r.scale;
+          }
+          break;
+      }
+      if (mm >= 0) return { kind: 'empty', mm: Math.round(mm) };
     }
-    if (mm >= 0) return { kind: 'empty', mm: Math.round(mm) };
+
+    // 4. Внутри фасада: стекло (центр) или профиль (рамка)
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+      const f = r.frame;
+      if (x >= r.x + f && x <= r.x + r.w - f && y >= r.y + f && y <= r.y + r.h - f) {
+        return { kind: 'glass' };
+      }
+      return { kind: 'profile' };
+    }
     return null;
   }
 }

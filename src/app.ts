@@ -14,11 +14,7 @@ import { FacadeRenderer, type Hit } from './canvas-render';
 import { WheelPicker } from './wheel-picker';
 import { Carousel } from './carousel';
 
-type ToolId = 'material' | 'hinges';
-
 const ICON = {
-  palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></svg>`,
-  wrench: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.1 2.1 0 0 1-3-3l9.4-9.4z"/><path d="M14.7 6.3 17 4l3 3-2.3 2.3"/></svg>`,
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
   redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`,
@@ -65,13 +61,11 @@ export function mountApp(root: HTMLElement) {
         <canvas id="facade-canvas"></canvas>
       </div>
       <div class="tool-area" id="tool-area"></div>
-      <div class="tool-switcher" id="tool-switcher"></div>
     </main>
   `);
 
   const canvas = document.getElementById('facade-canvas') as HTMLCanvasElement;
   const toolArea = document.getElementById('tool-area') as HTMLDivElement;
-  const switcher = document.getElementById('tool-switcher') as HTMLDivElement;
   const priceTag = document.getElementById('price-tag') as HTMLElement;
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
@@ -123,28 +117,11 @@ export function mountApp(root: HTMLElement) {
   // ── Tap по canvas ──────────────────────────────────────────────────────
   renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh, renderer);
 
-  // ── Переключатель инструментов ─────────────────────────────────────────
-  let activeTool: ToolId = 'material';
-  const tools: { id: ToolId; icon: string; label: string }[] = [
-    { id: 'material', icon: ICON.palette, label: 'Материалы' },
-    { id: 'hinges',   icon: ICON.wrench,  label: 'Петли' },
-  ];
-  for (const t of tools) {
-    const b = document.createElement('button');
-    b.className = 'tool-btn';
-    b.innerHTML = `<span class="tool-icon">${t.icon}</span><span>${t.label}</span>`;
-    b.onclick = () => { activeTool = t.id; renderTool(); };
-    switcher.appendChild(b);
-  }
-
-  function renderTool() {
-    Array.from(switcher.children).forEach((el, i) => {
-      (el as HTMLElement).classList.toggle('active', tools[i].id === activeTool);
-    });
+  // Внизу всегда инструмент петель. Материалы и размеры — через тапы по чертежу.
+  const renderTool = () => {
     toolArea.innerHTML = '';
-    if (activeTool === 'material') mountMaterialTool(toolArea, fs, refresh);
-    if (activeTool === 'hinges')   mountHingesTool(toolArea, fs, model, refresh);
-  }
+    mountHingesTool(toolArea, fs, model, refresh);
+  };
 
   // ── Корзина ────────────────────────────────────────────────────────────
   cartBtn.onclick = () => openCartSheet(fs, model, refresh);
@@ -161,10 +138,9 @@ export function mountApp(root: HTMLElement) {
 
 function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => void, renderer: FacadeRenderer) {
   if (!hit) return;
-  if (hit.kind === 'dim') {
-    openDimensionEditor(fs, model, hit.axis, refresh);
-    return;
-  }
+  if (hit.kind === 'dim')     { openDimensionEditor(fs, model, hit.axis, refresh); return; }
+  if (hit.kind === 'profile') { openProfileEditor(fs, refresh); return; }
+  if (hit.kind === 'glass')   { openGlassEditor(fs, refresh); return; }
   if (hit.kind === 'hinge') {
     openHingeEditor(fs, model, hit.index, refresh, renderer);
   } else if (hit.kind === 'empty') {
@@ -292,47 +268,48 @@ function openDimensionEditor(fs: FacadeState, model: any, axis: 'width' | 'heigh
   }, { dim: false });
 }
 
-function mountMaterialTool(area: HTMLElement, fs: FacadeState, refresh: () => void) {
-  toolHeader(area, 'Материалы', 'Тап для выбора');
+function openProfileEditor(fs: FacadeState, refresh: () => void) {
+  openSheet('Профиль', (body, _close) => {
+    new Carousel<ProfileColor>({
+      parent: body, name: 'Цвет профиля',
+      items: Object.entries(PROFILE_COLORS).map(([k, v]) => ({
+        value: k as ProfileColor, label: v.name, swatch: v.hex,
+      })),
+      value: fs.profileColor,
+      onChange: v => { fs.profileColor = v; refresh(); },
+    });
+  }, { dim: false });
+}
 
-  new Carousel<ProfileColor>({
-    parent: area, name: 'Цвет профиля',
-    items: Object.entries(PROFILE_COLORS).map(([k, v]) => ({
-      value: k as ProfileColor, label: v.name, swatch: v.hex,
-    })),
-    value: fs.profileColor,
-    onChange: v => { fs.profileColor = v; refresh(); },
-  });
-
-  new Carousel<GlassColor>({
-    parent: area, name: 'Цвет стекла',
-    items: Object.entries(GLASS_COLORS).map(([k, v]) => ({
-      value: k as GlassColor, label: v.name, swatch: v.hex,
-    })),
-    value: fs.glassColor,
-    onChange: v => { fs.glassColor = v; refresh(); },
-  });
-
-  new Carousel<GlassType>({
-    parent: area, name: 'Тип стекла',
-    items: Object.entries(GLASS_TYPES).map(([k, v]) => ({
-      value: k as GlassType, label: v.name,
-    })),
-    value: fs.glassType,
-    onChange: v => { fs.glassType = v; refresh(); },
-  });
-
-  // Закалка — toggle
-  const row = document.createElement('div');
-  row.className = 'toggle-row';
-  row.innerHTML = `<label>Закалённое стекло</label><div class="toggle ${fs.tempered ? 'on' : ''}"></div>`;
-  const toggle = row.querySelector('.toggle') as HTMLElement;
-  toggle.onclick = () => {
-    fs.tempered = !fs.tempered;
-    toggle.classList.toggle('on', fs.tempered);
-    refresh();
-  };
-  area.appendChild(row);
+function openGlassEditor(fs: FacadeState, refresh: () => void) {
+  openSheet('Стекло', (body, _close) => {
+    new Carousel<GlassColor>({
+      parent: body, name: 'Цвет',
+      items: Object.entries(GLASS_COLORS).map(([k, v]) => ({
+        value: k as GlassColor, label: v.name, swatch: v.hex,
+      })),
+      value: fs.glassColor,
+      onChange: v => { fs.glassColor = v; refresh(); },
+    });
+    new Carousel<GlassType>({
+      parent: body, name: 'Тип',
+      items: Object.entries(GLASS_TYPES).map(([k, v]) => ({
+        value: k as GlassType, label: v.name,
+      })),
+      value: fs.glassType,
+      onChange: v => { fs.glassType = v; refresh(); },
+    });
+    const row = document.createElement('div');
+    row.className = 'toggle-row';
+    row.innerHTML = `<label>Закалённое</label><div class="toggle ${fs.tempered ? 'on' : ''}"></div>`;
+    const toggle = row.querySelector('.toggle') as HTMLElement;
+    toggle.onclick = () => {
+      fs.tempered = !fs.tempered;
+      toggle.classList.toggle('on', fs.tempered);
+      refresh();
+    };
+    body.appendChild(row);
+  }, { dim: false });
 }
 
 function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
