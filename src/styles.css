@@ -403,72 +403,34 @@ body.has-sheet .tool-switcher { display: none; }
 .tool-area .btn-row { padding: 10px 16px 4px; border-top: 1px solid var(--border); }
 .tool-area .btn-row:first-of-type { border-top: none; }
 
-/* Текстовая ссылка-кнопка — лёгкая, без боксов */
-.link-btn {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; padding: 12px 16px;
-  background: transparent; border: none; border-top: 1px solid var(--border);
-  font-family: inherit; font-size: 12px; font-weight: 500;
-  color: var(--muted); cursor: pointer; letter-spacing: 0.02em;
-  transition: color .15s, background .15s;
+/* Hinges single row: side chips + stepper */
+.hinges-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 16px 10px;
+  border-top: 1px solid var(--border);
 }
-.link-btn:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,0.02); }
-.link-btn:active:not(:disabled) { background: rgba(255,255,255,0.04); }
-.link-btn:disabled { opacity: 0.4; cursor: default; }
-.link-btn-row {
-  display: flex; border-top: 1px solid var(--border);
+.side-chips {
+  display: flex; gap: 2px; flex: 1; min-width: 0;
 }
-.link-btn-row .link-btn { border-top: none; flex: 1; }
-.link-btn-row .link-btn + .link-btn { border-left: 1px solid var(--border); }
-
-/* Size axis chips */
-.size-chips {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  padding: 0 16px 8px;
+.side-chip {
+  position: relative; flex: 1;
+  padding: 8px 4px 10px;
+  background: transparent; border: none; color: var(--muted);
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  white-space: nowrap; cursor: pointer;
+  transition: color .12s;
 }
-.size-chip {
-  position: relative;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding: 10px 12px;
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
-  font-family: inherit; color: var(--muted); cursor: pointer;
-  transition: color .12s, border-color .12s, background .12s;
+.side-chip::after {
+  content: ''; position: absolute; bottom: 2px; left: 50%;
+  width: 0; height: 2px; background: var(--accent); border-radius: 1px;
+  transform: translateX(-50%);
+  transition: width .13s cubic-bezier(0.3, 0.85, 0.25, 1);
 }
-.size-chip:hover { color: var(--text); border-color: var(--surface3); }
-.size-chip.active {
-  color: var(--accent);
-  border-color: rgba(var(--accent-rgb), 0.5);
-  background: rgba(var(--accent-rgb), 0.06);
-}
-.size-chip .chip-axis {
-  position: absolute; top: 8px; right: 10px;
-  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
-  color: var(--accent); letter-spacing: 0.08em;
-  border: 1px solid rgba(var(--accent-rgb), 0.4); border-radius: 4px;
-  padding: 1px 5px; line-height: 1.2;
-}
-.size-chip .chip-label {
-  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--muted);
-}
-.size-chip .chip-val {
-  font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 600;
-  color: var(--accent); letter-spacing: -0.02em; line-height: 1;
-}
-.size-chip .chip-unit {
-  font-size: 10px; font-weight: 400; color: var(--muted);
-  margin-left: 3px;
-}
+.side-chip:hover { color: var(--text); }
+.side-chip.active { color: var(--accent); font-weight: 600; }
+.side-chip.active::after { width: calc(100% - 8px); }
 
 /* Stepper: − N + */
-.stepper-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px; border-top: 1px solid var(--border);
-}
-.stepper-label {
-  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--muted);
-}
 .stepper {
   display: inline-flex; align-items: center;
   background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
@@ -486,13 +448,6 @@ body.has-sheet .tool-switcher { display: none; }
   font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600;
   color: var(--accent); padding: 0 4px;
 }
-.link-btn-icon { display: inline-flex; width: 14px; height: 14px; color: var(--accent); }
-.link-btn-icon svg { width: 100%; height: 100%; }
-.link-btn-count {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
-  color: var(--muted2); margin-left: 4px;
-}
-
 /* ── Sheet (bottom modal) ── */
 .sheet-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0); z-index: 100;

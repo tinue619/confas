@@ -17,8 +17,6 @@ import { Carousel } from './carousel';
 const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
-  redo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`,
-  mirror: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 8 4 12l4 4"/><path d="m16 8 4 4-4 4"/></svg>`,
   sun:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`,
 };
@@ -313,7 +311,7 @@ function openGlassEditor(fs: FacadeState, refresh: () => void) {
 }
 
 function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
-  toolHeader(area, 'Петли и присадка', 'Тап — править · край — добавить');
+  toolHeader(area, 'Петли', 'Тап по краю — добавить');
 
   if (!model.drilling || !model.hinges) {
     const note = document.createElement('div');
@@ -323,9 +321,7 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     return;
   }
 
-  // Режим выбора больше нет. Авто-заливка дефолтных позиций — только при
-  // первом входе в инструмент (когда mode='none'). Иначе уважаем пустой массив,
-  // чтобы пользователь мог явно выбрать 0 петель через степпер.
+  // Авто-заливка дефолтных позиций — только при первом входе (mode='none').
   if (fs.hingeMode === 'none') {
     fs.hingeMode = 'holes+hinges';
     if (fs.hingePositions.length === 0) {
@@ -338,28 +334,9 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     mountHingesTool(area, fs, model, refresh);
   };
 
-  new Carousel<HingeSide>({
-    parent: area, name: 'Сторона',
-    items: [
-      { value: 'left',   label: 'Лево' },
-      { value: 'right',  label: 'Право' },
-      { value: 'top',    label: 'Верх' },
-      { value: 'bottom', label: 'Низ' },
-    ],
-    value: fs.hingeSide,
-    onChange: v => {
-      fs.hingeSide = v;
-      fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
-      refresh();
-      remount();
-    },
-  });
-
-  // Количество петель: − N + (с авто-перераспределением)
   const sideLen = sideLength(fs);
   const endOffset = model.hinges?.endOffset ?? 100;
   const count = fs.hingePositions.length;
-  // Максимум: 60мм отступа с каждого края + 45мм зазор между петлями
   const maxCount = Math.max(1, Math.floor((sideLen - 120) / 45) + 1);
   const setCount = (n: number) => {
     fs.hingePositions = spreadHinges(Math.max(0, Math.min(maxCount, n)), sideLen, endOffset);
@@ -367,41 +344,40 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     remount();
   };
 
-  const countRow = document.createElement('div');
-  countRow.className = 'stepper-row';
-  countRow.innerHTML = `
-    <span class="stepper-label">Количество петель</span>
-    <div class="stepper">
-      <button class="stepper-btn" data-act="dec" ${count <= 0 ? 'disabled' : ''}>−</button>
-      <span class="stepper-val">${count}</span>
-      <button class="stepper-btn" data-act="inc" ${count >= maxCount ? 'disabled' : ''}>+</button>
-    </div>`;
-  (countRow.querySelector('[data-act="dec"]') as HTMLButtonElement).onclick = () => setCount(count - 1);
-  (countRow.querySelector('[data-act="inc"]') as HTMLButtonElement).onclick = () => setCount(count + 1);
-  area.appendChild(countRow);
+  // Единая строка: 4 чипа сторон + степпер количества
+  const row = document.createElement('div');
+  row.className = 'hinges-row';
 
-  // Действия: расставить заново + отразить
-  const actions = document.createElement('div');
-  actions.className = 'link-btn-row';
+  const sides = document.createElement('div');
+  sides.className = 'side-chips';
+  const sideOptions: Array<[HingeSide, string]> = [
+    ['left', 'Лево'], ['right', 'Право'], ['top', 'Верх'], ['bottom', 'Низ'],
+  ];
+  for (const [s, label] of sideOptions) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'side-chip' + (s === fs.hingeSide ? ' active' : '');
+    b.textContent = label;
+    b.onclick = () => {
+      fs.hingeSide = s;
+      fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
+      refresh();
+      remount();
+    };
+    sides.appendChild(b);
+  }
 
-  const reset = document.createElement('button');
-  reset.className = 'link-btn';
-  reset.innerHTML = `<span class="link-btn-icon">${ICON.redo}</span>Расставить заново`;
-  reset.disabled = count === 0;
-  reset.onclick = () => { setCount(count); };
+  const stepper = document.createElement('div');
+  stepper.className = 'stepper';
+  stepper.innerHTML = `
+    <button class="stepper-btn" data-act="dec" ${count <= 0 ? 'disabled' : ''}>−</button>
+    <span class="stepper-val">${count}</span>
+    <button class="stepper-btn" data-act="inc" ${count >= maxCount ? 'disabled' : ''}>+</button>`;
+  (stepper.querySelector('[data-act="dec"]') as HTMLButtonElement).onclick = () => setCount(count - 1);
+  (stepper.querySelector('[data-act="inc"]') as HTMLButtonElement).onclick = () => setCount(count + 1);
 
-  const mirror = document.createElement('button');
-  mirror.className = 'link-btn';
-  mirror.innerHTML = `<span class="link-btn-icon">${ICON.mirror}</span>Зеркально`;
-  mirror.disabled = count < 2;
-  mirror.onclick = () => {
-    fs.hingePositions = fs.hingePositions.map(p => sideLen - p).sort((a, b) => a - b);
-    refresh();
-    remount();
-  };
-
-  actions.append(reset, mirror);
-  area.appendChild(actions);
+  row.append(sides, stepper);
+  area.appendChild(row);
 }
 
 function toolHeader(area: HTMLElement, title: string, hint = '') {
