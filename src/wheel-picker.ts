@@ -113,7 +113,11 @@ export class WheelPicker {
     this.update(o.value, false);
     this.bindEvents();
 
-    this.ro = new ResizeObserver(() => { this.resize(); this.draw(); });
+    let raf: number | null = null;
+    this.ro = new ResizeObserver(() => {
+      if (raf !== null) return;
+      raf = requestAnimationFrame(() => { raf = null; this.resize(); this.draw(); });
+    });
     this.ro.observe(this.track);
   }
 

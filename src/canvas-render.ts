@@ -84,8 +84,13 @@ export class FacadeRenderer {
     canvas.addEventListener('pointerdown', this.onPointerDown);
 
     // Авто-перерисовка при любых изменениях размера контейнера
-    // (переключение вкладок, изменение окна, появление клавиатуры и т.д.)
-    const ro = new ResizeObserver(() => this.redraw());
+    // (переключение вкладок, изменение окна, появление клавиатуры и т.д.).
+    // rAF-троттлинг: не больше одной перерисовки на кадр даже при анимации.
+    let raf: number | null = null;
+    const ro = new ResizeObserver(() => {
+      if (raf !== null) return;
+      raf = requestAnimationFrame(() => { raf = null; this.redraw(); });
+    });
     ro.observe(this.container);
   }
 
