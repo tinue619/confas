@@ -594,9 +594,10 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   const body = sheet.querySelector('.sheet-body') as HTMLElement;
   document.body.append(overlay, sheet);
 
-  // Усаживаем основную область под высоту шторки — фасад не перекрывается.
+  // Усаживаем основную область под высоту шторки + запас 12px,
+  // чтобы размерная линия «ширина» внизу никогда не перекрывалась.
   const updateSheetH = () => {
-    const h = sheet.getBoundingClientRect().height;
+    const h = sheet.getBoundingClientRect().height + 12;
     document.documentElement.style.setProperty('--sheet-h', h + 'px');
   };
   const sheetRo = new ResizeObserver(updateSheetH);
