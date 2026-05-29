@@ -556,10 +556,12 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
     // Шторка едет вниз — оставляем padding-bottom, чтобы canvas не подрос «через» неё.
-    // После анимации убираем — canvas мгновенно расширяется.
+    // После анимации убираем — но только если за это время не открыли новую шторку.
     setTimeout(() => {
-      document.documentElement.style.removeProperty('--sheet-h');
-      document.body.classList.remove('has-sheet');
+      if (activeSheetClose === null) {
+        document.documentElement.style.removeProperty('--sheet-h');
+        document.body.classList.remove('has-sheet');
+      }
       overlay.remove();
       sheet.remove();
     }, 250);
