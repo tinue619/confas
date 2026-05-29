@@ -45,14 +45,12 @@ const PAD_BASE = 10;
 const RULER_GAP = 26;
 const HINGE_CHAIN_GAP = 44;
 const HINGE_HIT_RADIUS = 18; // px вокруг центра петли — зона тапа
-const EMPTY_HIT_BAND = 22;   // px от ребра, где tap считается "по пустому месту на стороне"
 
 export interface HingeHit { kind: 'hinge'; index: number; }
-export interface EmptyHit { kind: 'empty'; mm: number; }
 export interface DimHit { kind: 'dim'; axis: 'width' | 'height'; }
 export interface ProfileHit { kind: 'profile' }
 export interface GlassHit { kind: 'glass' }
-export type Hit = HingeHit | EmptyHit | DimHit | ProfileHit | GlassHit | null;
+export type Hit = HingeHit | DimHit | ProfileHit | GlassHit | null;
 
 export class FacadeRenderer {
   private canvas: HTMLCanvasElement;
@@ -489,37 +487,7 @@ export class FacadeRenderer {
     }
 
     const r = this.rect;
-    // 3. Полоса вдоль стороны для добавления петли (только если есть drilling)
-    if (this.state.hingeMode !== 'none' && this.model.drilling) {
-      const side = this.state.hingeSide;
-      const eo = this.model.drilling.edgeOffset * r.scale;
-      let mm = -1;
-      switch (side) {
-        case 'left':
-          if (Math.abs(x - (r.x + eo)) <= EMPTY_HIT_BAND && y >= r.y && y <= r.y + r.h) {
-            mm = (r.y + r.h - y) / r.scale;
-          }
-          break;
-        case 'right':
-          if (Math.abs(x - (r.x + r.w - eo)) <= EMPTY_HIT_BAND && y >= r.y && y <= r.y + r.h) {
-            mm = (r.y + r.h - y) / r.scale;
-          }
-          break;
-        case 'top':
-          if (Math.abs(y - (r.y + eo)) <= EMPTY_HIT_BAND && x >= r.x && x <= r.x + r.w) {
-            mm = (x - r.x) / r.scale;
-          }
-          break;
-        case 'bottom':
-          if (Math.abs(y - (r.y + r.h - eo)) <= EMPTY_HIT_BAND && x >= r.x && x <= r.x + r.w) {
-            mm = (x - r.x) / r.scale;
-          }
-          break;
-      }
-      if (mm >= 0) return { kind: 'empty', mm: Math.round(mm) };
-    }
-
-    // 4. Внутри фасада: стекло (центр) или профиль (рамка)
+    // 3. Внутри фасада: стекло (центр) или профиль (рамка)
     if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
       const f = r.frame;
       if (x >= r.x + f && x <= r.x + r.w - f && y >= r.y + f && y <= r.y + r.h - f) {

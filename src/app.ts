@@ -139,23 +139,7 @@ function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => v
   if (hit.kind === 'dim')     { openDimensionEditor(fs, model, hit.axis, refresh); return; }
   if (hit.kind === 'profile') { openProfileEditor(fs, refresh); return; }
   if (hit.kind === 'glass')   { openGlassEditor(fs, refresh); return; }
-  if (hit.kind === 'hinge') {
-    openHingeEditor(fs, model, hit.index, refresh, renderer);
-  } else if (hit.kind === 'empty') {
-    // Добавление = «расставить заново» для нового количества петель.
-    const sideLen = sideLength(fs);
-    const newCount = fs.hingePositions.length + 1;
-    const endOffset = model.hinges?.endOffset ?? 100;
-    fs.hingePositions = spreadHinges(newCount, sideLen, endOffset);
-    refresh();
-    // Открываем редактор на ближайшей к тапу петле
-    let nearestIdx = 0, nearestDist = Infinity;
-    for (let i = 0; i < fs.hingePositions.length; i++) {
-      const d = Math.abs(fs.hingePositions[i] - hit.mm);
-      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
-    }
-    openHingeEditor(fs, model, nearestIdx, refresh, renderer);
-  }
+  if (hit.kind === 'hinge')   { openHingeEditor(fs, model, hit.index, refresh, renderer); return; }
 }
 
 function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: () => void, renderer?: FacadeRenderer) {
@@ -313,7 +297,7 @@ function openGlassEditor(fs: FacadeState, refresh: () => void) {
 }
 
 function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
-  toolHeader(area, 'Петли', 'Тап по краю — добавить');
+  toolHeader(area, 'Петли', 'Тап по петле — править');
 
   if (!model.drilling || !model.hinges) {
     const note = document.createElement('div');
