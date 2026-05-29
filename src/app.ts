@@ -366,25 +366,46 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     },
   });
 
-  // Действия: расставить автоматически + отразить
+  // Количество петель: − N + (с авто-перераспределением)
+  const sideLen = sideLength(fs);
+  const endOffset = model.hinges?.endOffset ?? 100;
+  const count = fs.hingePositions.length;
+  // Максимум: 60мм отступа с каждого края + 45мм зазор между петлями
+  const maxCount = Math.max(1, Math.floor((sideLen - 120) / 45) + 1);
+  const setCount = (n: number) => {
+    fs.hingePositions = spreadHinges(Math.max(0, Math.min(maxCount, n)), sideLen, endOffset);
+    refresh();
+    remount();
+  };
+
+  const countRow = document.createElement('div');
+  countRow.className = 'stepper-row';
+  countRow.innerHTML = `
+    <span class="stepper-label">Количество петель</span>
+    <div class="stepper">
+      <button class="stepper-btn" data-act="dec" ${count <= 0 ? 'disabled' : ''}>−</button>
+      <span class="stepper-val">${count}</span>
+      <button class="stepper-btn" data-act="inc" ${count >= maxCount ? 'disabled' : ''}>+</button>
+    </div>`;
+  (countRow.querySelector('[data-act="dec"]') as HTMLButtonElement).onclick = () => setCount(count - 1);
+  (countRow.querySelector('[data-act="inc"]') as HTMLButtonElement).onclick = () => setCount(count + 1);
+  area.appendChild(countRow);
+
+  // Действия: расставить заново + отразить
   const actions = document.createElement('div');
   actions.className = 'link-btn-row';
 
   const reset = document.createElement('button');
   reset.className = 'link-btn';
-  reset.innerHTML = `<span class="link-btn-icon">${ICON.redo}</span>Авто <span class="link-btn-count">${fs.hingePositions.length} шт</span>`;
-  reset.onclick = () => {
-    fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
-    refresh();
-    remount();
-  };
+  reset.innerHTML = `<span class="link-btn-icon">${ICON.redo}</span>Расставить заново`;
+  reset.disabled = count === 0;
+  reset.onclick = () => { setCount(count); };
 
   const mirror = document.createElement('button');
   mirror.className = 'link-btn';
   mirror.innerHTML = `<span class="link-btn-icon">${ICON.mirror}</span>Зеркально`;
-  mirror.disabled = fs.hingePositions.length < 2;
+  mirror.disabled = count < 2;
   mirror.onclick = () => {
-    const sideLen = sideLength(fs);
     fs.hingePositions = fs.hingePositions.map(p => sideLen - p).sort((a, b) => a - b);
     refresh();
     remount();
