@@ -339,10 +339,14 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     return;
   }
 
-  // Режим выбора больше нет — присадка с петлями всегда включены.
-  if (fs.hingeMode === 'none') fs.hingeMode = 'holes+hinges';
-  if (fs.hingePositions.length === 0) {
-    fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
+  // Режим выбора больше нет. Авто-заливка дефолтных позиций — только при
+  // первом входе в инструмент (когда mode='none'). Иначе уважаем пустой массив,
+  // чтобы пользователь мог явно выбрать 0 петель через степпер.
+  if (fs.hingeMode === 'none') {
+    fs.hingeMode = 'holes+hinges';
+    if (fs.hingePositions.length === 0) {
+      fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
+    }
   }
 
   const remount = () => {
