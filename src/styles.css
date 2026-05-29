@@ -503,7 +503,10 @@ body.has-sheet .tool-switcher { display: none; }
 /* Прозрачный overlay не должен ловить тапы — иначе по canvas-петле не попасть */
 .sheet-overlay--nodim { pointer-events: none; }
 .sheet {
-  position: fixed; left: 0; right: 0; bottom: 0; max-height: 85vh;
+  position: fixed; left: 0; right: 0; bottom: 0;
+  /* Любая шторка не может выйти за лимит — резервируем минимум 280px для канваса
+     (header + facade + размерная линия ширины снизу с воздухом). */
+  max-height: calc(100dvh - 280px);
   background: var(--surface); border-radius: 16px 16px 0 0;
   box-shadow: 0 -8px 24px rgba(0,0,0,.4); z-index: 101;
   display: flex; flex-direction: column;
@@ -535,7 +538,7 @@ body.has-sheet .tool-switcher { display: none; }
   .sheet {
     left: 50%; right: auto; bottom: 24px;
     width: 520px; max-width: calc(100% - 40px);
-    border-radius: 16px; max-height: 80vh;
+    border-radius: 16px; max-height: calc(100dvh - 280px);
     transform: translate(-50%, 120%);
   }
   .sheet--open { transform: translate(-50%, 0); }
