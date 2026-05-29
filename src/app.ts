@@ -54,7 +54,6 @@ export function mountApp(root: HTMLElement) {
   // ── DOM скелет ─────────────────────────────────────────────────────────
   root.insertAdjacentHTML('beforeend', `
     <header>
-      <div class="logo">Facade<span>Mod</span></div>
       <div class="price-tag" id="price-tag">—</div>
       <button class="theme-btn" id="theme-btn" aria-label="Сменить тему"></button>
       <button class="cart-btn" id="cart-btn">
