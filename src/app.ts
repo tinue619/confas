@@ -164,6 +164,10 @@ export function mountApp(root: HTMLElement) {
 
 function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => void, renderer: FacadeRenderer) {
   if (!hit) return;
+  if (hit.kind === 'dim') {
+    openDimensionEditor(fs, model, hit.axis, refresh);
+    return;
+  }
   if (hit.kind === 'hinge') {
     openHingeEditor(fs, model, hit.index, refresh, renderer);
   } else if (hit.kind === 'empty') {
@@ -259,29 +263,44 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
 
 // ─── Инструменты ──────────────────────────────────────────────────────────────
 
-function mountSizeTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
-  toolHeader(area, 'Размеры фасада', 'Прокрути · 1мм');
-  // При изменении размера переразлагаем петли, если сторона, на которой они стоят,
-  // зависит от изменившегося измерения.
-  const respread = (affectsAxis: 'h' | 'v') => {
-    if (!model.hinges || fs.hingePositions.length === 0) return;
-    const isVertical = fs.hingeSide === 'left' || fs.hingeSide === 'right';
-    if (affectsAxis === 'h' && !isVertical) {
-      fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.width, model.hinges.endOffset ?? 100);
-    } else if (affectsAxis === 'v' && isVertical) {
-      fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.height, model.hinges.endOffset ?? 100);
-    }
-  };
-  new WheelPicker({
-    parent: area, axis: 'X', name: 'Ширина', unit: 'мм',
-    min: 250, max: 2250, value: fs.width,
-    onChange: v => { fs.width = v; respread('h'); refresh(); },
-  });
-  new WheelPicker({
-    parent: area, axis: 'Y', name: 'Высота', unit: 'мм',
-    min: 250, max: 3210, value: fs.height,
-    onChange: v => { fs.height = v; respread('v'); refresh(); },
-  });
+// При изменении размера переразлагаем петли, если сторона, на которой они стоят,
+// зависит от изменившегося измерения.
+function respreadHinges(fs: FacadeState, model: any, affectsAxis: 'h' | 'v') {
+  if (!model.hinges || fs.hingePositions.length === 0) return;
+  const isVertical = fs.hingeSide === 'left' || fs.hingeSide === 'right';
+  if (affectsAxis === 'h' && !isVertical) {
+    fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.width, model.hinges.endOffset ?? 100);
+  } else if (affectsAxis === 'v' && isVertical) {
+    fs.hingePositions = spreadHinges(fs.hingePositions.length, fs.height, model.hinges.endOffset ?? 100);
+  }
+}
+
+function mountSizeTool(area: HTMLElement, _fs: FacadeState, _model: any, _refresh: () => void) {
+  toolHeader(area, 'Размеры фасада', 'Тап по размеру на чертеже');
+  const hint = document.createElement('div');
+  hint.style.cssText = 'padding: 18px 16px 24px; color: var(--muted2); font-size: 12px; text-align: center;';
+  hint.textContent = 'Тапни 600мм или 716мм на чертеже, чтобы изменить';
+  area.appendChild(hint);
+}
+
+function openDimensionEditor(fs: FacadeState, model: any, axis: 'width' | 'height', refresh: () => void) {
+  const isWidth = axis === 'width';
+  openSheet(isWidth ? 'Ширина' : 'Высота', (body, _close) => {
+    new WheelPicker({
+      parent: body,
+      axis: isWidth ? 'X' : 'Y',
+      name: isWidth ? 'Ширина' : 'Высота',
+      unit: 'мм',
+      min: 250,
+      max: isWidth ? 2250 : 3210,
+      value: isWidth ? fs.width : fs.height,
+      onChange: v => {
+        if (isWidth) { fs.width = v; respreadHinges(fs, model, 'h'); }
+        else        { fs.height = v; respreadHinges(fs, model, 'v'); }
+        refresh();
+      },
+    });
+  }, { dim: false });
 }
 
 function mountMaterialTool(area: HTMLElement, fs: FacadeState, refresh: () => void) {
