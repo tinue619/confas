@@ -462,6 +462,8 @@ main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; ove
 }
 .sheet-overlay--open { background: rgba(0,0,0,.55); }
 .sheet-overlay--nodim.sheet-overlay--open { background: rgba(0,0,0,0); }
+/* Прозрачный overlay не должен ловить тапы — иначе по canvas-петле не попасть */
+.sheet-overlay--nodim { pointer-events: none; }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; max-height: 85vh;
   background: var(--surface); border-radius: 16px 16px 0 0;

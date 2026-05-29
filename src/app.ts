@@ -186,7 +186,6 @@ function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => v
 
 function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: () => void, renderer?: FacadeRenderer) {
   const sideLen = sideLength(fs);
-  renderer?.setEditingHinge(index);
   // Подписи зависят от стороны: для вертикальных рёбер — снизу/сверху,
   // для горизонтальных — слева/справа.
   const isVertical = fs.hingeSide === 'left' || fs.hingeSide === 'right';
@@ -212,6 +211,8 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
   const snapPoints = standard.filter(p => p >= minBound && p <= maxBound);
 
   openSheet(`Петля #${index + 1}`, (body, close) => {
+    // Подсветка ставится после закрытия предыдущей шторки (та сбрасывает на null)
+    renderer?.setEditingHinge(index);
     let currentValue = editVal;
 
     new WheelPicker({
@@ -552,7 +553,10 @@ function configSummary(c: FacadeConfig): string {
 // ─── Bottom sheet helper ──────────────────────────────────────────────────────
 
 interface OpenSheetOpts { dim?: boolean; onClose?: () => void }
+let activeSheetClose: (() => void) | null = null;
 function openSheet(title: string, render: (body: HTMLElement, close: () => void) => void, opts: OpenSheetOpts = {}) {
+  // Закрываем предыдущую шторку без анимации — чтобы не дублировались
+  activeSheetClose?.();
   const dim = opts.dim ?? true;
   const onClose = opts.onClose;
   const overlay = document.createElement('div');
@@ -572,12 +576,14 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   const close = () => {
     if (closed) return;
     closed = true;
+    if (activeSheetClose === close) activeSheetClose = null;
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
     setTimeout(() => { overlay.remove(); sheet.remove(); }, 250);
     onClose?.();
   };
+  activeSheetClose = close;
   render(body, close);
   requestAnimationFrame(() => {
     overlay.classList.add('sheet-overlay--open');
