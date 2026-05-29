@@ -122,10 +122,16 @@ export function mountApp(root: HTMLElement) {
   };
 
   // ── Tap по canvas ──────────────────────────────────────────────────────
-  renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh, renderer);
+  renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh, renderer, openSizeAxis);
 
   // ── Переключатель инструментов ─────────────────────────────────────────
   let activeTool: ToolId = 'size';
+  const sizeState: SizeState = { axis: 'width' };
+  const openSizeAxis = (axis: 'width' | 'height') => {
+    sizeState.axis = axis;
+    activeTool = 'size';
+    renderTool();
+  };
   const tools: { id: ToolId; icon: string; label: string }[] = [
     { id: 'size',     icon: ICON.ruler,   label: 'Размеры' },
     { id: 'material', icon: ICON.palette, label: 'Материалы' },
@@ -144,7 +150,7 @@ export function mountApp(root: HTMLElement) {
       (el as HTMLElement).classList.toggle('active', tools[i].id === activeTool);
     });
     toolArea.innerHTML = '';
-    if (activeTool === 'size')     mountSizeTool(toolArea, fs, model, refresh);
+    if (activeTool === 'size')     mountSizeTool(toolArea, fs, model, refresh, sizeState);
     if (activeTool === 'material') mountMaterialTool(toolArea, fs, refresh);
     if (activeTool === 'hinges')   mountHingesTool(toolArea, fs, model, refresh);
   }
@@ -162,10 +168,13 @@ export function mountApp(root: HTMLElement) {
 
 // ─── Tap по canvas: петля → редактировать; пустое место по стороне → добавить ─
 
-function handleCanvasTap(hit: Hit, fs: FacadeState, model: any, refresh: () => void, renderer: FacadeRenderer) {
+function handleCanvasTap(
+  hit: Hit, fs: FacadeState, model: any, refresh: () => void,
+  renderer: FacadeRenderer, openSizeAxis: (axis: 'width' | 'height') => void,
+) {
   if (!hit) return;
   if (hit.kind === 'dim') {
-    openDimensionEditor(fs, model, hit.axis, refresh);
+    openSizeAxis(hit.axis);
     return;
   }
   if (hit.kind === 'hinge') {
@@ -275,32 +284,55 @@ function respreadHinges(fs: FacadeState, model: any, affectsAxis: 'h' | 'v') {
   }
 }
 
-function mountSizeTool(area: HTMLElement, _fs: FacadeState, _model: any, _refresh: () => void) {
-  toolHeader(area, 'Размеры фасада', 'Тап по размеру на чертеже');
-  const hint = document.createElement('div');
-  hint.style.cssText = 'padding: 18px 16px 24px; color: var(--muted2); font-size: 12px; text-align: center;';
-  hint.textContent = 'Тапни 600мм или 716мм на чертеже, чтобы изменить';
-  area.appendChild(hint);
-}
+interface SizeState { axis: 'width' | 'height' }
 
-function openDimensionEditor(fs: FacadeState, model: any, axis: 'width' | 'height', refresh: () => void) {
-  const isWidth = axis === 'width';
-  openSheet(isWidth ? 'Ширина' : 'Высота', (body, _close) => {
-    new WheelPicker({
-      parent: body,
-      axis: isWidth ? 'X' : 'Y',
-      name: isWidth ? 'Ширина' : 'Высота',
-      unit: 'мм',
-      min: 250,
-      max: isWidth ? 2250 : 3210,
-      value: isWidth ? fs.width : fs.height,
-      onChange: v => {
-        if (isWidth) { fs.width = v; respreadHinges(fs, model, 'h'); }
-        else        { fs.height = v; respreadHinges(fs, model, 'v'); }
-        refresh();
-      },
-    });
-  }, { dim: false });
+function mountSizeTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void, state: SizeState) {
+  toolHeader(area, 'Размеры фасада', 'Тап по чертежу или чипу');
+
+  // Чипы для переключения оси
+  const chips = document.createElement('div');
+  chips.className = 'size-chips';
+  const buildChip = (axis: 'width' | 'height') => {
+    const isW = axis === 'width';
+    const c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'size-chip' + (axis === state.axis ? ' active' : '');
+    c.innerHTML = `
+      <span class="chip-axis">${isW ? 'X' : 'Y'}</span>
+      <span class="chip-label">${isW ? 'Ширина' : 'Высота'}</span>
+      <span class="chip-val">${isW ? fs.width : fs.height}<span class="chip-unit">мм</span></span>`;
+    c.onclick = () => {
+      if (state.axis !== axis) {
+        state.axis = axis;
+        area.innerHTML = '';
+        mountSizeTool(area, fs, model, refresh, state);
+      }
+    };
+    return c;
+  };
+  chips.append(buildChip('width'), buildChip('height'));
+  area.appendChild(chips);
+
+  // Wheel-picker для выбранной оси
+  const isWidth = state.axis === 'width';
+  new WheelPicker({
+    parent: area,
+    axis: isWidth ? 'X' : 'Y',
+    name: isWidth ? 'Ширина' : 'Высота',
+    unit: 'мм',
+    min: 250,
+    max: isWidth ? 2250 : 3210,
+    value: isWidth ? fs.width : fs.height,
+    onChange: v => {
+      if (isWidth) { fs.width = v; respreadHinges(fs, model, 'h'); }
+      else         { fs.height = v; respreadHinges(fs, model, 'v'); }
+      refresh();
+      // Обновляем значения в чипах без полного remount
+      const vals = chips.querySelectorAll('.chip-val');
+      vals[0].innerHTML = `${fs.width}<span class="chip-unit">мм</span>`;
+      vals[1].innerHTML = `${fs.height}<span class="chip-unit">мм</span>`;
+    },
+  });
 }
 
 function mountMaterialTool(area: HTMLElement, fs: FacadeState, refresh: () => void) {
