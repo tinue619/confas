@@ -105,17 +105,21 @@ export class FacadeRenderer {
     ctx.clearRect(0, 0, cw, ch);
 
     const W = this.state.width, H = this.state.height;
-    // Отступы со сторон фасада зависят от того, что там рисуется:
-    //  • снизу — размер ширины,
-    //  • справа — размер высоты,
-    //  • на стороне петель — цепочка размеров между петлями.
+    // Симметрия канваса:
+    //  • снизу — всегда размер ширины,
+    //  • справа — всегда размер высоты,
+    //  • слева — цепочка петель (если они на вертикальной стороне),
+    //  • сверху — цепочка петель (если они на горизонтальной стороне).
     const hingeMode = this.state.hingeMode;
-    const hingeOnSide = (s: 'left'|'right'|'top'|'bottom') =>
-      hingeMode !== 'none' && this.state.hingeSide === s ? HINGE_CHAIN_GAP : 0;
-    const padL = PAD_BASE + hingeOnSide('left');
-    const padR = PAD_BASE + RULER_GAP + hingeOnSide('right');
-    const padT = PAD_BASE + hingeOnSide('top');
-    const padB = PAD_BASE + RULER_GAP + hingeOnSide('bottom');
+    const hasHinges = hingeMode !== 'none' && this.state.hingePositions.length > 0;
+    const side = this.state.hingeSide;
+    const isVerticalSide = side === 'left' || side === 'right';
+    const chainLeft = hasHinges && isVerticalSide;
+    const chainTop  = hasHinges && !isVerticalSide;
+    const padL = PAD_BASE + (chainLeft ? HINGE_CHAIN_GAP : 0);
+    const padR = PAD_BASE + RULER_GAP;
+    const padT = PAD_BASE + (chainTop ? HINGE_CHAIN_GAP : 0);
+    const padB = PAD_BASE + RULER_GAP;
     const availW = cw - padL - padR;
     const availH = ch - padT - padB;
     const scale = Math.min(availW / W, availH / H);
@@ -429,7 +433,8 @@ export class FacadeRenderer {
     const ctx = this.ctx;
     const W = this.state.width, H = this.state.height;
     const side = this.state.hingeSide;
-    const sideLen = (side === 'left' || side === 'right') ? H : W;
+    const isVerticalSide = side === 'left' || side === 'right';
+    const sideLen = isVerticalSide ? H : W;
     const sorted = [...this.state.hingePositions].sort((a, b) => a - b);
     const chain = [0, ...sorted, sideLen];
 
@@ -438,47 +443,44 @@ export class FacadeRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Преобразование позиции вдоль стороны (мм) → координаты экрана
-    const toScreen = (t: number): { x: number; y: number } => {
-      switch (side) {
-        case 'left':   return { x: rx,      y: ry + rh - t * scale };
-        case 'right':  return { x: rx + rw, y: ry + rh - t * scale };
-        case 'top':    return { x: rx + t * scale, y: ry };
-        case 'bottom': return { x: rx + t * scale, y: ry + rh };
-      }
-    };
-    // Перпендикулярное направление (от ребра наружу) в экране
-    const perp = (() => {
-      switch (side) {
-        case 'left':   return { x: -1, y:  0 };
-        case 'right':  return { x:  1, y:  0 };
-        case 'top':    return { x:  0, y: -1 };
-        case 'bottom': return { x:  0, y:  1 };
-      }
-    })();
-    const offset = HINGE_CHAIN_GAP - 8;
+    // Цепочка всегда живёт в одной позиции:
+    //   • для вертикальных сторон (left/right) — слева от фасада.
+    //   • для горизонтальных (top/bottom)     — сверху от фасада.
+    // Так размеры фасада (снизу+справа) и цепочка петель никогда не пересекаются.
+    const chainX = rx - (HINGE_CHAIN_GAP - 8);
+    const chainY = ry - (HINGE_CHAIN_GAP - 8);
+    const chainPoint = (t: number): { x: number; y: number } =>
+      isVerticalSide
+        ? { x: chainX, y: ry + rh - t * scale }
+        : { x: rx + t * scale, y: chainY };
 
     // Значение редактируемой петли (если есть) — для подсветки соседних сегментов
     const editVal = this.editingHingeIndex !== null
       ? this.state.hingePositions[this.editingHingeIndex]
       : null;
 
+    // Короткие тики на концах цепочки (только в самом её начале и конце —
+    // показать диапазон).
+    const tickLen = 6;
+    const a0 = chainPoint(chain[0]);
+    const aN = chainPoint(chain[chain.length - 1]);
+    if (isVerticalSide) {
+      this.drawTick(a0.x - tickLen, a0.y, a0.x + tickLen, a0.y);
+      this.drawTick(aN.x - tickLen, aN.y, aN.x + tickLen, aN.y);
+    } else {
+      this.drawTick(a0.x, a0.y - tickLen, a0.x, a0.y + tickLen);
+      this.drawTick(aN.x, aN.y - tickLen, aN.x, aN.y + tickLen);
+    }
+
     for (let i = 0; i < chain.length - 1; i++) {
       const t1 = chain[i], t2 = chain[i + 1];
       const len = Math.round(t2 - t1);
       if (len <= 0) continue;
-      const p1 = toScreen(t1), p2 = toScreen(t2);
-      const a = { x: p1.x + perp.x * offset, y: p1.y + perp.y * offset };
-      const b = { x: p2.x + perp.x * offset, y: p2.y + perp.y * offset };
-      // tick от ребра до линии цепочки
-      this.drawTick(p1.x, p1.y, a.x, a.y);
-      // если последний — рисуем и второй tick (для других сегментов он совпадёт с первым следующего)
-      if (i === chain.length - 2) this.drawTick(p2.x, p2.y, b.x, b.y);
-      // Сегмент примыкает к редактируемой петле — подсвечиваем
+      const a = chainPoint(t1), b = chainPoint(t2);
       const isHighlight = editVal !== null && (t1 === editVal || t2 === editVal);
       const lineCol = isHighlight ? this.p.accent : this.p.dimDark;
       const textCol = isHighlight ? this.p.accent : this.p.text;
-      if (side === 'left' || side === 'right') {
+      if (isVerticalSide) {
         this.drawDimLineV(a.x, a.y, b.x, b.y, String(len), lineCol, textCol);
       } else {
         this.drawDimLine(a.x, a.y, b.x, b.y, String(len), lineCol, textCol);
