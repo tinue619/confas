@@ -659,12 +659,17 @@ function showCartPreview(item: OrderItem, model: any, num: number): () => void {
   renderer.onTap = null;
   requestAnimationFrame(() => renderer.redraw());
 
-  return () => overlay.remove();
+  let closed = false;
+  const close = () => { if (!closed) { closed = true; overlay.remove(); } };
+  // Fallback: тап по затемнённому фону закрывает (на случай если pointerup потерялся)
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  return close;
 }
 
 /** Удержание тапа на строке: показывает превью, отпустил — скрыл.
-    После открытия превью «ловим» пойнтер на row через setPointerCapture —
-    финал-pointerup приходит на row независимо от того, куда уехал палец. */
+    Закрытие — только на реальный pointerup (а не pointercancel, который
+    браузер шлёт когда «решил» что это скролл). pointerup ловим на window
+    в capture-фазе, чтобы он гарантированно дошёл до нас. */
 function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: number) {
   let timer: number | null = null;
   let startX = 0, startY = 0;
@@ -675,39 +680,36 @@ function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: numbe
     const pid = e.pointerId;
     startX = e.clientX; startY = e.clientY;
 
-    const earlyRelease = (ev: PointerEvent) => {
+    // Отпустили до срабатывания — отменяем
+    const earlyUp = (ev: PointerEvent) => {
       if (ev.pointerId !== pid) return;
       if (timer !== null) { clearTimeout(timer); timer = null; }
-      row.removeEventListener('pointerup', earlyRelease);
-      row.removeEventListener('pointercancel', earlyRelease);
+      window.removeEventListener('pointerup', earlyUp, true);
+      window.removeEventListener('pointercancel', earlyUp, true);
     };
-    row.addEventListener('pointerup', earlyRelease);
-    row.addEventListener('pointercancel', earlyRelease);
+    window.addEventListener('pointerup', earlyUp, true);
+    window.addEventListener('pointercancel', earlyUp, true);
 
     timer = window.setTimeout(() => {
       timer = null;
-      // Захватываем пойнтер: события для него теперь приходят на row,
-      // даже если палец уехал в другой угол экрана.
-      try { row.setPointerCapture(pid); } catch {}
-      // earlyRelease можно снять — он бы лишь обнулил уже null таймер.
-      row.removeEventListener('pointerup', earlyRelease);
-      row.removeEventListener('pointercancel', earlyRelease);
+      window.removeEventListener('pointerup', earlyUp, true);
+      window.removeEventListener('pointercancel', earlyUp, true);
 
       if ((navigator as any).vibrate) (navigator as any).vibrate(12);
       const closePreview = showCartPreview(item, model, num);
 
+      // Закрытие ТОЛЬКО на физическое отпускание пальца.
+      // pointercancel игнорируем — браузер может прислать его при «угадывании» скролла.
       const onUp = (ev: PointerEvent) => {
         if (ev.pointerId !== pid) return;
         closePreview();
-        row.removeEventListener('pointerup', onUp);
-        row.removeEventListener('pointercancel', onUp);
+        window.removeEventListener('pointerup', onUp, true);
       };
-      row.addEventListener('pointerup', onUp);
-      row.addEventListener('pointercancel', onUp);
+      window.addEventListener('pointerup', onUp, true);
     }, 450);
   });
 
-  // Сдвиг до открытия превью — отмена; после — игнор (захват держит пойнтер).
+  // Сдвиг ДО открытия превью — отмена. После открытия — игнор.
   row.addEventListener('pointermove', e => {
     if (timer === null) return;
     if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) {
