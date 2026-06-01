@@ -505,6 +505,7 @@ function configSummary(c: FacadeConfig): string {
 interface OpenSheetOpts { dim?: boolean; onClose?: () => void }
 let activeSheetClose: (() => void) | null = null;
 function openSheet(title: string, render: (body: HTMLElement, close: () => void) => void, opts: OpenSheetOpts = {}) {
+  const switching = activeSheetClose !== null;
   // Закрываем предыдущую шторку без анимации — чтобы не дублировались
   activeSheetClose?.();
   const dim = opts.dim ?? true;
@@ -522,7 +523,22 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   const body = sheet.querySelector('.sheet-body') as HTMLElement;
   document.body.append(overlay, sheet);
 
-  // Усаживаем основную область под высоту шторки.
+  // Для плавной анимации запоминаем высоту tool-area — это «безопасный» padding,
+  // при котором canvas не меняет размер ровно в момент скрытия tool-area.
+  const mainEl = document.querySelector('main') as HTMLElement;
+  const toolEl = document.getElementById('tool-area') as HTMLElement | null;
+  const toolH = !switching && toolEl ? toolEl.getBoundingClientRect().height : 0;
+
+  if (!switching) {
+    // Мгновенно ставим padding = высоте tool-area + скрываем tool-area.
+    // Canvas сохраняет тот же размер — нет рывка.
+    mainEl.style.transition = 'none';
+    document.documentElement.style.setProperty('--sheet-h', toolH + 'px');
+    document.body.classList.add('has-sheet');
+    void mainEl.offsetHeight; // force reflow
+    mainEl.style.transition = '';
+  }
+
   const updateSheetH = () => {
     const h = sheet.getBoundingClientRect().height;
     document.documentElement.style.setProperty('--sheet-h', h + 'px');
@@ -538,11 +554,20 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
-    // Шторка едет вниз — оставляем padding-bottom, чтобы canvas не подрос «через» неё.
-    // После анимации убираем — но только если за это время не открыли новую шторку.
+    // На закрытии возвращаем padding к высоте tool-area плавно — canvas
+    // расширяется параллельно с уезжанием шторки.
+    if (toolH > 0) {
+      document.documentElement.style.setProperty('--sheet-h', toolH + 'px');
+    }
     setTimeout(() => {
       if (activeSheetClose === null) {
+        // Анимация завершена — мгновенно показываем tool-area и сбрасываем padding.
+        // Canvas не меняет размер (padding=toolH без tool-area == padding=0 с tool-area).
+        mainEl.style.transition = 'none';
         document.documentElement.style.removeProperty('--sheet-h');
+        document.body.classList.remove('has-sheet');
+        void mainEl.offsetHeight;
+        mainEl.style.transition = '';
       }
       overlay.remove();
       sheet.remove();

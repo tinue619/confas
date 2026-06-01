@@ -128,8 +128,9 @@ main {
   padding-bottom: var(--sheet-h, 0);
   transition: padding-bottom .25s ease;
 }
-/* tool-area остаётся видимой над шторкой — canvas меняет размер одной плавной
-   анимацией, без рывков display: none ↔ flex */
+/* tool-area скрывается, когда шторка открыта (управление petля поверх не нужно).
+   Чтобы canvas не дёргался, мы синхронизируем display:none с padding-bottom в JS. */
+body.has-sheet .tool-area { display: none; }
 
 .canvas-section {
   background: var(--canvas-bg); position: relative; overflow: hidden;
@@ -310,11 +311,11 @@ main {
 
 /* ── Carousel ── */
 .carousel-block {
-  padding: 8px 0 6px;
+  padding: 4px 0 2px;
   border-top: 1px solid var(--border);
 }
 .carousel-block:first-of-type { border-top: none; }
-.carousel-header { padding: 0 16px 2px; }
+.carousel-header { padding: 4px 16px 0; }
 .carousel-name {
   font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--muted);
@@ -357,7 +358,7 @@ main {
 /* ── Toggle ── */
 .toggle-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border-top: 1px solid var(--border);
 }
 .toggle-row:first-of-type { border-top: none; }
@@ -475,17 +476,17 @@ main {
 }
 .sheet-drag:active { cursor: grabbing; }
 .sheet-handle {
-  padding: 10px 0 6px;
+  padding: 8px 0 4px;
   display: flex; justify-content: center;
 }
 .sheet-grip { width: 44px; height: 4px; background: var(--muted2); border-radius: 2px; }
 .sheet-header {
-  padding: 0 20px 12px; font-size: 15px; font-weight: 600;
+  padding: 0 16px 8px; font-size: 14px; font-weight: 600;
   color: var(--text);
 }
 .sheet-body {
-  flex: 1 1 auto; overflow-y: auto; padding: 14px 16px 16px;
-  display: flex; flex-direction: column; gap: 12px;
+  flex: 1 1 auto; overflow-y: auto; padding: 4px 0 8px;
+  display: flex; flex-direction: column;
   -webkit-overflow-scrolling: touch;
 }
 
