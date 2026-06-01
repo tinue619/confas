@@ -446,14 +446,10 @@ function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
 }
 
 function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
+  void fs; void model;
   openSheet('Корзина', (body, close) => {
     const renderInside = () => {
       body.innerHTML = '';
-      const addBtn = document.createElement('button');
-      addBtn.className = 'cart-add';
-      addBtn.textContent = '+ Добавить текущий фасад';
-      addBtn.onclick = () => { addCurrentToCart(fs, model); renderInside(); refresh(); };
-      body.appendChild(addBtn);
       fillCart(body, () => renderInside(), close);
     };
     renderInside();
@@ -477,10 +473,9 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
     const row = document.createElement('div');
     row.className = 'cart-row';
     row.innerHTML = `
-      <span class="cart-row-num">${i + 1}</span>
+      <span class="cart-row-num">${i + 1}.</span>
       <span class="cart-row-size">${c.width}×${c.height}</span>
       ${facadeIcon(c, item.id)}
-      <span class="cart-row-name">${escapeHtml(item.modelName)}</span>
       <span class="cart-row-spec">${escapeHtml(specs)}</span>
       <div class="cart-row-qty">
         <button data-act="dec">−</button>
