@@ -54,7 +54,6 @@ export function mountApp(root: HTMLElement) {
             <span class="add-fab-cart">${ICON.cart}</span>
           </button>
         </div>
-        <button class="edit-done-fab" id="edit-done-fab" hidden>✓ Готово</button>
       </div>
       <div class="tool-area" id="tool-area"></div>
     </main>
@@ -66,7 +65,6 @@ export function mountApp(root: HTMLElement) {
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
   const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
-  const editDoneFab = document.getElementById('edit-done-fab') as HTMLButtonElement;
   const headerTitleEl = document.querySelector('.header-title') as HTMLElement;
 
   // ── Рендерер canvas ────────────────────────────────────────────────────
@@ -75,7 +73,12 @@ export function mountApp(root: HTMLElement) {
   renderer.setState(fs);
 
   // ── Режим редактирования позиции корзины ─────────────────────────────
+  // Полноэкранная шторка с редактором: туда «переезжают» canvas-section +
+  // tool-area, шторка едет снизу. Кнопка «Готово» закрывает её обратно.
   let editingItemId: string | null = null;
+  let editOverlay: HTMLElement | null = null;
+  void headerTitleEl; // используем оверлей вместо смены заголовка
+
   const enterEditMode = (id: string) => {
     const item = store.getOrder().items.find(i => i.id === id);
     if (!item) return;
@@ -90,29 +93,49 @@ export function mountApp(root: HTMLElement) {
     fs.hingeMode = item.config.hingeMode;
     fs.hingeSide = item.config.hingeSide;
     fs.hingePositions = [...item.config.hingePositions];
+
+    const idx = store.getOrder().items.findIndex(i => i.id === id);
+    const overlay = document.createElement('div');
+    overlay.className = 'edit-overlay';
+    overlay.innerHTML = `
+      <div class="edit-header">
+        <div class="edit-title">ПОЗИЦИЯ ${idx + 1}</div>
+        <button class="edit-save" id="edit-save">✓ Готово</button>
+      </div>
+      <div class="edit-body"></div>`;
+    document.body.appendChild(overlay);
+
+    const editBody = overlay.querySelector('.edit-body') as HTMLElement;
+    const canvasSection = document.querySelector('.canvas-section') as HTMLElement;
+    editBody.appendChild(canvasSection);
+    editBody.appendChild(toolArea);
+
+    editOverlay = overlay;
+    (overlay.querySelector('#edit-save') as HTMLButtonElement).onclick = exitEditMode;
+
+    requestAnimationFrame(() => overlay.classList.add('edit-overlay--open'));
+
     refresh();
-    updateEditUi();
     renderTool();
   };
+
   const exitEditMode = () => {
-    editingItemId = null;
-    updateEditUi();
-  };
-  const updateEditUi = () => {
-    if (editingItemId) {
-      const idx = store.getOrder().items.findIndex(i => i.id === editingItemId);
-      headerTitleEl.textContent = idx >= 0 ? `ПОЗИЦИЯ ${idx + 1}` : 'РЕДАКТОР';
-      headerTitleEl.classList.add('header-title--editing');
-      addFab.hidden = true;
-      editDoneFab.hidden = false;
-    } else {
-      headerTitleEl.textContent = 'РЕДАКТОР';
-      headerTitleEl.classList.remove('header-title--editing');
-      addFab.hidden = false;
-      editDoneFab.hidden = true;
+    if (!editOverlay) {
+      editingItemId = null;
+      return;
     }
+    const overlay = editOverlay;
+    editOverlay = null;
+    overlay.classList.remove('edit-overlay--open');
+    setTimeout(() => {
+      const main = document.querySelector('main') as HTMLElement;
+      const canvasSection = document.querySelector('.canvas-section') as HTMLElement;
+      main.insertBefore(canvasSection, toolArea);
+      main.appendChild(toolArea);
+      overlay.remove();
+      editingItemId = null;
+    }, 300);
   };
-  editDoneFab.onclick = () => exitEditMode();
 
   const refresh = () => {
     renderer.redraw();
