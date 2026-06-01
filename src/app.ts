@@ -698,14 +698,17 @@ function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: numbe
       if ((navigator as any).vibrate) (navigator as any).vibrate(12);
       const closePreview = showCartPreview(item, model, num);
 
-      // Закрытие ТОЛЬКО на физическое отпускание пальца.
-      // pointercancel игнорируем — браузер может прислать его при «угадывании» скролла.
-      const onUp = (ev: PointerEvent) => {
-        if (ev.pointerId !== pid) return;
+      // Закрытие — на любой pointerup/touchend/mouseup, без жёсткой
+      // привязки к pointerId (iOS иногда меняет id во время жеста).
+      const onAnyUp = () => {
         closePreview();
-        window.removeEventListener('pointerup', onUp, true);
+        window.removeEventListener('pointerup', onAnyUp, true);
+        window.removeEventListener('touchend', onAnyUp, true);
+        window.removeEventListener('mouseup', onAnyUp, true);
       };
-      window.addEventListener('pointerup', onUp, true);
+      window.addEventListener('pointerup', onAnyUp, true);
+      window.addEventListener('touchend', onAnyUp, true);
+      window.addEventListener('mouseup', onAnyUp, true);
     }, 450);
   });
 
