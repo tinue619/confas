@@ -156,14 +156,38 @@ export class FacadeRenderer {
     const profileHex = PROFILE_COLORS[this.state.profileColor]?.hex ?? '#888';
 
     // Стекло — заходит за раму. Рисуем его ДО рамы, чтобы рама закрывала наружные 44мм.
-    // Подложка тёмная, поверх — заливка стекла выбранного цвета.
     const glassHex = GLASS_COLORS[this.state.glassColor]?.hex ?? '#c4d8de';
-    const matte = this.state.glassType === 'matte';
+    const glassX = rx + glass, glassY = ry + glass;
+    const glassW = rw - glass * 2, glassH = rh - glass * 2;
     ctx.save();
+    // Подложка тёмная (проёмчик за стеклом)
     ctx.fillStyle = this.p.void;
-    ctx.fillRect(rx + glass, ry + glass, rw - glass * 2, rh - glass * 2);
-    ctx.fillStyle = hexToRgba(glassHex, matte ? 0.65 : 0.35);
-    ctx.fillRect(rx + glass, ry + glass, rw - glass * 2, rh - glass * 2);
+    ctx.fillRect(glassX, glassY, glassW, glassH);
+    if (this.state.glassType === 'textured') {
+      // Базовая заливка — чуть плотнее, как полупрозрачное стекло
+      ctx.fillStyle = hexToRgba(glassHex, 0.40);
+      ctx.fillRect(glassX, glassY, glassW, glassH);
+      // Вертикальные рёбра ~8мм с лёгким светлым гребнем и тёмным «дном»
+      const ridgeMm = 8;
+      const ridgePx = Math.max(2, ridgeMm * scale);
+      const highlightW = Math.max(1, ridgePx * 0.45);
+      ctx.fillStyle = hexToRgba(glassHex, 0.55);
+      for (let x = glassX; x < glassX + glassW; x += ridgePx) {
+        ctx.fillRect(x, glassY, highlightW, glassH);
+      }
+      // Тонкая тёмная линия — стык между рёбрами
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      const shadowOff = highlightW;
+      for (let x = glassX + shadowOff; x < glassX + glassW; x += ridgePx) {
+        ctx.fillRect(x, glassY, 1, glassH);
+      }
+    } else if (this.state.glassType === 'matte') {
+      ctx.fillStyle = hexToRgba(glassHex, 0.65);
+      ctx.fillRect(glassX, glassY, glassW, glassH);
+    } else {
+      ctx.fillStyle = hexToRgba(glassHex, 0.35);
+      ctx.fillRect(glassX, glassY, glassW, glassH);
+    }
     ctx.restore();
 
     // Рама из 4-х трапеций с 45° запилами (от наружного к внутреннему углу).
