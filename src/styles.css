@@ -500,11 +500,13 @@ body.has-sheet .tool-area { display: none; }
   .sheet--open { transform: translate(-50%, 0); }
 }
 
-/* ── Cart list ── */
+/* ── Cart list ──
+   Единая шкала: text 12px, money/qty mono 12px, label caps 10px, total mono 16px.
+   Цвета: text — название, muted — размер, muted2 — доп. инфо, accent — деньги/qty. */
 .cart-empty {
-  padding: 30px 20px; text-align: center; color: var(--muted);
+  padding: 30px 20px; text-align: center; color: var(--muted); font-size: 12px;
 }
-.cart-empty-icon { font-size: 42px; opacity: .6; margin-bottom: 10px; }
+.cart-empty-icon { opacity: .5; margin-bottom: 10px; }
 .cart-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 16px;
@@ -513,30 +515,31 @@ body.has-sheet .tool-area { display: none; }
 }
 .cart-row:first-of-type { border-top: none; }
 .cart-facade-icon {
-  width: 16px; height: 22px; flex: 0 0 auto; border-radius: 1.5px;
+  width: 16px; height: 22px; flex: 0 0 auto; border-radius: 2px;
   display: block;
 }
 .cart-row-name {
-  font-weight: 600; color: var(--text); white-space: nowrap; flex: 0 0 auto;
-}
-.cart-row-size {
-  font-family: 'JetBrains Mono', monospace; color: var(--muted);
+  font-size: 12px; font-weight: 600; color: var(--text);
   white-space: nowrap; flex: 0 0 auto;
 }
+.cart-row-size {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted); white-space: nowrap; flex: 0 0 auto;
+}
 .cart-row-spec {
-  color: var(--muted2); flex: 1 1 auto;
+  font-size: 11px; color: var(--muted2); flex: 1 1 auto;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .cart-row-qty {
   display: inline-flex; align-items: center;
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
   font-family: 'JetBrains Mono', monospace; font-weight: 600;
   flex: 0 0 auto;
 }
 .cart-row-qty button {
-  width: 24px; height: 24px; border: none; padding: 0;
-  background: transparent; color: var(--text);
-  font-family: inherit; font-size: 14px; cursor: pointer;
+  width: 22px; height: 22px; border: none; padding: 0;
+  background: transparent; color: var(--muted);
+  font-family: inherit; font-size: 13px; cursor: pointer;
   transition: color .12s;
 }
 .cart-row-qty button:hover { color: var(--accent); }
@@ -545,29 +548,45 @@ body.has-sheet .tool-area { display: none; }
   color: var(--accent);
 }
 .cart-row-total {
-  font-family: 'JetBrains Mono', monospace; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
   color: var(--accent); white-space: nowrap; flex: 0 0 auto;
   min-width: 56px; text-align: right; letter-spacing: -0.02em;
 }
 .cart-row-del {
   background: none; border: none; color: var(--muted2);
-  cursor: pointer; font-size: 16px; padding: 0;
-  width: 22px; height: 22px; flex: 0 0 auto;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0;
+  width: 20px; height: 20px; flex: 0 0 auto;
   transition: color .12s;
 }
 .cart-row-del:hover { color: var(--red); }
+
 .cart-footer {
-  border-top: 1px solid var(--border); padding-top: 12px;
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
 }
-.cart-total {
-  flex: 1; display: flex; flex-direction: column;
+.cart-total { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cart-total-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
 }
-.cart-total-label { font-size: 11px; color: var(--muted); }
 .cart-total-value {
-  font-family: 'JetBrains Mono', monospace; font-size: 20px;
-  font-weight: 600; color: var(--accent);
+  font-family: 'JetBrains Mono', monospace; font-size: 16px;
+  font-weight: 600; color: var(--accent); letter-spacing: -0.02em;
+  line-height: 1.1;
 }
+.cart-footer .btn { padding: 8px 14px; min-height: 36px; font-size: 12px; }
+
+.cart-add {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 12px 16px;
+  background: transparent; border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--accent); font-family: inherit; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.02em; cursor: pointer;
+  transition: background .12s;
+}
+.cart-add:hover { background: rgba(var(--accent-rgb), 0.06); }
 
 /* ── Field label ── */
 .field-label {

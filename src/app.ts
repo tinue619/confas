@@ -379,14 +379,11 @@ function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
   openSheet('Корзина', (body, close) => {
     const renderInside = () => {
       body.innerHTML = '';
-      fillCart(body, () => renderInside(), close);
 
-      const ctaRow = document.createElement('div');
-      ctaRow.className = 'btn-row';
-      ctaRow.style.marginTop = '6px';
+      // Добавить текущий фасад — лёгкая ссылка сверху, не конкурирует с Оформить
       const addBtn = document.createElement('button');
-      addBtn.className = 'btn btn-primary';
-      addBtn.textContent = '+ Добавить этот фасад';
+      addBtn.className = 'cart-add';
+      addBtn.textContent = '+ Добавить текущий фасад';
       addBtn.onclick = () => {
         const br = calcPrice(model, fs);
         const cfg: FacadeConfig = {
@@ -405,8 +402,9 @@ function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
         renderInside();
         refresh();
       };
-      ctaRow.appendChild(addBtn);
-      body.appendChild(ctaRow);
+      body.appendChild(addBtn);
+
+      fillCart(body, () => renderInside(), close);
     };
     renderInside();
   }, { id: 'cart' });
