@@ -662,33 +662,51 @@ function showCartPreview(item: OrderItem, model: any, num: number): () => void {
   return () => overlay.remove();
 }
 
-/** Удержание тапа на строке: показывает превью, отпустил — скрыл */
+/** Удержание тапа на строке: показывает превью, отпустил — скрыл.
+    Движение пальца после открытия превью не закрывает его — только реальное
+    отпускание (pointerup/cancel ловим на document, не на row). */
 function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: number) {
   let timer: number | null = null;
   let startX = 0, startY = 0;
-  let closePreview: (() => void) | null = null;
-  const cancelTimer = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
-  const closeNow = () => { if (closePreview) { closePreview(); closePreview = null; } };
-  const release = () => { cancelTimer(); closeNow(); };
 
   row.addEventListener('pointerdown', e => {
     const t = e.target as HTMLElement;
     if (t.closest('button, input')) return;
     startX = e.clientX; startY = e.clientY;
+    const cancelTimer = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+
     timer = window.setTimeout(() => {
       timer = null;
       if ((navigator as any).vibrate) (navigator as any).vibrate(12);
-      closePreview = showCartPreview(item, model, num);
+      const closePreview = showCartPreview(item, model, num);
+      // Закрывается только при реальном отпускании пальца (где угодно на экране)
+      const onUp = () => {
+        closePreview();
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+      };
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
     }, 450);
+
+    // Если отпустили раньше срабатывания таймера — отменяем открытие
+    const earlyRelease = () => {
+      cancelTimer();
+      document.removeEventListener('pointerup', earlyRelease);
+      document.removeEventListener('pointercancel', earlyRelease);
+    };
+    document.addEventListener('pointerup', earlyRelease);
+    document.addEventListener('pointercancel', earlyRelease);
   });
+
+  // Сдвиг до открытия превью — отмена; после открытия — игнор (движение
+  // обрабатывается уже не нами).
   row.addEventListener('pointermove', e => {
-    // Если ещё ждём таймер — отмена при сдвиге; превью уже открыто — игнорируем сдвиги
     if (timer === null) return;
-    if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) cancelTimer();
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) {
+      clearTimeout(timer); timer = null;
+    }
   });
-  row.addEventListener('pointerup', release);
-  row.addEventListener('pointercancel', release);
-  row.addEventListener('pointerleave', release);
 }
 
 /** SVG-пиктограмма фасада: рама цветом профиля, стекло цветом + текстура */
