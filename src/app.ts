@@ -145,7 +145,7 @@ export function mountApp(root: HTMLElement) {
     b.onclick = () => setFabQty(fabQty + (b.dataset.act === 'inc' ? 1 : -1));
   });
   fabGoEl.onclick = () => {
-    for (let i = 0; i < fabQty; i++) addCurrentToCart(fs, model);
+    addCurrentToCart(fs, model, fabQty);
     // Лёгкая обратная связь — pop-анимация и вибрация
     addFab.classList.remove('add-fab--pop');
     void addFab.offsetWidth;
@@ -405,7 +405,24 @@ function toolHeader(area: HTMLElement, title: string, hint = '') {
 
 // ─── Корзина (шторка) ─────────────────────────────────────────────────────────
 
-function addCurrentToCart(fs: FacadeState, model: any) {
+function sameConfig(a: FacadeConfig, b: FacadeConfig): boolean {
+  if (a.width !== b.width) return false;
+  if (a.height !== b.height) return false;
+  if (a.profileColor !== b.profileColor) return false;
+  if (a.glassColor !== b.glassColor) return false;
+  if (a.glassType !== b.glassType) return false;
+  if (a.tempered !== b.tempered) return false;
+  if (a.hingeMode !== b.hingeMode) return false;
+  if (a.hingeSide !== b.hingeSide) return false;
+  if (a.hingePositions.length !== b.hingePositions.length) return false;
+  // Положения петель сравниваем как отсортированные мультимножества.
+  const sa = [...a.hingePositions].sort((x, y) => x - y);
+  const sb = [...b.hingePositions].sort((x, y) => x - y);
+  for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;
+  return true;
+}
+
+function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
   const br = calcPrice(model, fs);
   const cfg: FacadeConfig = {
     width: fs.width, height: fs.height,
@@ -413,11 +430,17 @@ function addCurrentToCart(fs: FacadeState, model: any) {
     tempered: fs.tempered, hingeMode: fs.hingeMode, hingeSide: fs.hingeSide,
     hingePositions: [...fs.hingePositions],
   };
+  // Идентичный фасад уже есть — увеличиваем количество.
+  const existing = store.getOrder().items.find(it => sameConfig(it.config, cfg));
+  if (existing) {
+    store.setQty(existing.id, existing.qty + count);
+    return;
+  }
   store.addItem({
     id: store.newId(),
     modelRef: { category: 'facade', modelId: 'wide' },
     modelName: model.name,
-    config: cfg, priceSnapshot: br, qty: 1,
+    config: cfg, priceSnapshot: br, qty: count,
     addedAt: new Date().toISOString(),
   });
 }
