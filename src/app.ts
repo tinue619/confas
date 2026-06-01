@@ -130,7 +130,8 @@ export function mountApp(root: HTMLElement) {
     setTimeout(() => {
       const main = document.querySelector('main') as HTMLElement;
       const canvasSection = document.querySelector('.canvas-section') as HTMLElement;
-      main.insertBefore(canvasSection, toolArea);
+      // canvasSection и toolArea сейчас оба в overlay, .appendChild их переносит
+      main.appendChild(canvasSection);
       main.appendChild(toolArea);
       overlay.remove();
       editingItemId = null;
