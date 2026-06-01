@@ -528,7 +528,6 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     document.documentElement.style.setProperty('--sheet-h', h + 'px');
   };
   const sheetRo = new ResizeObserver(updateSheetH);
-  document.body.classList.add('has-sheet');
 
   let closed = false;
   const close = () => {
@@ -544,7 +543,6 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     setTimeout(() => {
       if (activeSheetClose === null) {
         document.documentElement.style.removeProperty('--sheet-h');
-        document.body.classList.remove('has-sheet');
       }
       overlay.remove();
       sheet.remove();
