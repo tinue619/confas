@@ -423,37 +423,30 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
   }
 
   for (const item of order.items) {
+    const c = item.config;
+    const specs = compactSpec(c);
     const row = document.createElement('div');
     row.className = 'cart-row';
-    const info = document.createElement('div');
-    info.className = 'cart-row-info';
-    info.innerHTML = `
-      <div class="cart-row-name">${escapeHtml(item.modelName)}</div>
-      <div class="cart-row-spec">${configSummary(item.config)}</div>
-      <div class="cart-row-unit">за шт: ${fmtMoney(item.priceSnapshot.total)}</div>`;
-    row.appendChild(info);
-
-    const right = document.createElement('div');
-    right.className = 'cart-row-controls';
-    const qty = document.createElement('div');
-    qty.className = 'qty-box';
-    const minus = mkQty('−'), plus = mkQty('+');
-    const inp = document.createElement('input');
-    inp.type = 'number'; inp.min = '1'; inp.value = String(item.qty);
-    inp.className = 'qty-input';
-    inp.onchange = () => { store.setQty(item.id, parseInt(inp.value, 10) || 1); rerender(); };
-    minus.onclick = () => { store.setQty(item.id, item.qty - 1); rerender(); };
-    plus.onclick  = () => { store.setQty(item.id, item.qty + 1); rerender(); };
-    qty.append(minus, inp, plus);
-    const sum = document.createElement('div');
-    sum.className = 'cart-row-sum';
-    sum.textContent = fmtMoney(item.priceSnapshot.total * item.qty);
-    const del = document.createElement('button');
-    del.className = 'cart-row-del';
-    del.textContent = '✕ Удалить';
-    del.onclick = () => { store.removeItem(item.id); rerender(); };
-    right.append(qty, sum, del);
-    row.appendChild(right);
+    row.innerHTML = `
+      <span class="cart-row-name">${escapeHtml(item.modelName)}</span>
+      <span class="cart-row-size">${c.width}×${c.height}</span>
+      <span class="cart-row-spec">${escapeHtml(specs)}</span>
+      <div class="cart-row-qty">
+        <button data-act="dec">−</button>
+        <span class="val">${item.qty}</span>
+        <button data-act="inc">+</button>
+      </div>
+      <span class="cart-row-total">${fmtMoney(item.priceSnapshot.total * item.qty)}</span>
+      <button class="cart-row-del" aria-label="Удалить">×</button>`;
+    (row.querySelector('[data-act="dec"]') as HTMLButtonElement).onclick = () => {
+      store.setQty(item.id, item.qty - 1); rerender();
+    };
+    (row.querySelector('[data-act="inc"]') as HTMLButtonElement).onclick = () => {
+      store.setQty(item.id, item.qty + 1); rerender();
+    };
+    (row.querySelector('.cart-row-del') as HTMLButtonElement).onclick = () => {
+      store.removeItem(item.id); rerender();
+    };
     body.appendChild(row);
   }
 
@@ -479,23 +472,17 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
   body.appendChild(footer);
 }
 
-function mkQty(t: string): HTMLButtonElement {
-  const b = document.createElement('button');
-  b.className = 'qty-btn'; b.textContent = t;
-  return b;
-}
-
-function configSummary(c: FacadeConfig): string {
+/** Компактное описание спек для строки корзины: «Нержа · Прозр · Гладкое · петли↑2» */
+function compactSpec(c: FacadeConfig): string {
   const parts = [
-    `${c.width}×${c.height}мм`,
     PROFILE_COLORS[c.profileColor]?.name,
     GLASS_COLORS[c.glassColor]?.name,
     GLASS_TYPES[c.glassType]?.name,
   ];
-  if (c.tempered) parts.push('закалка');
+  if (c.tempered) parts.push('закал.');
   if (c.hingeMode !== 'none' && c.hingePositions.length > 0) {
-    const sideRu = { left: 'лево', right: 'право', top: 'верх', bottom: 'низ' }[c.hingeSide];
-    parts.push(`${c.hingeMode === 'holes' ? 'присадка' : 'петли'} ${sideRu}×${c.hingePositions.length}`);
+    const arrow = { left: '←', right: '→', top: '↑', bottom: '↓' }[c.hingeSide];
+    parts.push(`петли${arrow}${c.hingePositions.length}`);
   }
   return parts.filter(Boolean).join(' · ');
 }
