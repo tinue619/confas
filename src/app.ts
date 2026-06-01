@@ -446,17 +446,17 @@ function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
 }
 
 function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
-  void fs; void model;
+  void fs; void refresh;
   openSheet('Корзина', (body, close) => {
     const renderInside = () => {
       body.innerHTML = '';
-      fillCart(body, () => renderInside(), close);
+      fillCart(body, () => renderInside(), close, model);
     };
     renderInside();
   }, { id: 'cart' });
 }
 
-function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
+function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, model: any) {
   const order = store.getOrder();
   if (order.items.length === 0) {
     const e = document.createElement('div');
@@ -493,7 +493,7 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
     (row.querySelector('.cart-row-del') as HTMLButtonElement).onclick = () => {
       store.removeItem(item.id); rerender();
     };
-    bindLongPress(row, item);
+    bindLongPress(row, item, model);
     body.appendChild(row);
   }
 
@@ -530,8 +530,8 @@ function compactSpec(c: FacadeConfig): string {
   return parts.join(' · ');
 }
 
-/** Большой SVG-эскиз фасада для long-press превью: рама, стекло, петли, размеры */
-function facadePreviewSVG(c: FacadeConfig): string {
+/** [Legacy SVG fallback] Не используется — рендерим через FacadeRenderer на canvas */
+function _facadePreviewSVG_unused(c: FacadeConfig): string {
   const FRAME = 44, GLASS_M = 4;
   // Подгоняем под ~260×340 с сохранением пропорций
   const maxW = 260, maxH = 340;
@@ -627,7 +627,7 @@ function facadePreviewSVG(c: FacadeConfig): string {
   </svg>`;
 }
 
-function showCartPreview(item: OrderItem) {
+function showCartPreview(item: OrderItem, model: any) {
   const overlay = document.createElement('div');
   overlay.className = 'preview-overlay';
   const card = document.createElement('div');
@@ -635,14 +635,30 @@ function showCartPreview(item: OrderItem) {
   const specBits = compactSpec(item.config);
   card.innerHTML = `
     <div class="preview-header">
-      <span class="preview-num">№ ${item.qty > 1 ? `<small>(×${item.qty})</small>` : ''}</span>
+      <span class="preview-num">${item.qty > 1 ? `×${item.qty}` : ''}</span>
       <span class="preview-size">${item.config.width}×${item.config.height}</span>
     </div>
-    ${facadePreviewSVG(item.config)}
+    <div class="preview-canvas-wrap">
+      <canvas></canvas>
+    </div>
     <div class="preview-spec">${escapeHtml(specBits || '—')}</div>`;
   overlay.appendChild(card);
   document.body.appendChild(overlay);
-  // Закрытие при тапе вне карточки и по кнопке Escape
+
+  // Рендер используем тот же, что в редакторе
+  const canvas = card.querySelector('canvas') as HTMLCanvasElement;
+  const tmpState = new FacadeState();
+  Object.assign(tmpState, item.config, {
+    hingePositions: [...item.config.hingePositions],
+  });
+  const renderer = new FacadeRenderer(canvas);
+  renderer.setModel(model);
+  renderer.setState(tmpState);
+  // Превью статичное — тапы по канвасу не нужны
+  renderer.onTap = null;
+  requestAnimationFrame(() => renderer.redraw());
+
+  // Закрытие
   const close = () => overlay.remove();
   overlay.addEventListener('pointerdown', e => {
     if (e.target === overlay) close();
@@ -653,7 +669,7 @@ function showCartPreview(item: OrderItem) {
 }
 
 /** Привязывает long-press → showCartPreview к элементу строки */
-function bindLongPress(row: HTMLElement, item: OrderItem) {
+function bindLongPress(row: HTMLElement, item: OrderItem, model: any) {
   let timer: number | null = null;
   let startX = 0, startY = 0;
   const cancel = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
@@ -665,7 +681,7 @@ function bindLongPress(row: HTMLElement, item: OrderItem) {
     timer = window.setTimeout(() => {
       timer = null;
       if ((navigator as any).vibrate) (navigator as any).vibrate(12);
-      showCartPreview(item);
+      showCartPreview(item, model);
     }, 450);
   });
   row.addEventListener('pointermove', e => {
