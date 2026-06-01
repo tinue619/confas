@@ -551,23 +551,30 @@ body.has-sheet .tool-area { display: none; }
 }
 .cart-empty-icon { opacity: .5; margin-bottom: 10px; }
 .cart-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 10px 8px;
   border-top: 1px solid var(--border);
   font-size: 12px; min-width: 0;
 }
 .cart-row:first-of-type { border-top: none; }
+.cart-row-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted2); font-weight: 600;
+  min-width: 18px; text-align: right; flex: 0 0 auto;
+}
+.cart-row-size {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  color: var(--text); font-weight: 600;
+  white-space: nowrap; flex: 0 0 auto;
+  letter-spacing: -0.01em;
+}
 .cart-facade-icon {
   width: 16px; height: 22px; flex: 0 0 auto; border-radius: 2px;
   display: block;
 }
 .cart-row-name {
-  font-size: 12px; font-weight: 600; color: var(--text);
+  font-size: 11px; font-weight: 500; color: var(--muted);
   white-space: nowrap; flex: 0 0 auto;
-}
-.cart-row-size {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
-  color: var(--muted); white-space: nowrap; flex: 0 0 auto;
 }
 .cart-row-spec {
   font-size: 11px; color: var(--muted2); flex: 1 1 auto;

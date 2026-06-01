@@ -470,15 +470,17 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
     return;
   }
 
-  for (const item of order.items) {
+  for (let i = 0; i < order.items.length; i++) {
+    const item = order.items[i];
     const c = item.config;
     const specs = compactSpec(c);
     const row = document.createElement('div');
     row.className = 'cart-row';
     row.innerHTML = `
+      <span class="cart-row-num">${i + 1}</span>
+      <span class="cart-row-size">${c.width}×${c.height}</span>
       ${facadeIcon(c, item.id)}
       <span class="cart-row-name">${escapeHtml(item.modelName)}</span>
-      <span class="cart-row-size">${c.width}×${c.height}</span>
       <span class="cart-row-spec">${escapeHtml(specs)}</span>
       <div class="cart-row-qty">
         <button data-act="dec">−</button>
