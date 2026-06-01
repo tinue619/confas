@@ -176,6 +176,13 @@ export function mountApp(root: HTMLElement) {
     }
   };
 
+  // Следим за высотой тулбара — резерв снизу у main строится через CSS max().
+  const updateToolH = () => {
+    const h = toolArea.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--tool-h', h + 'px');
+  };
+  new ResizeObserver(updateToolH).observe(toolArea);
+
   // ── Tap по canvas ──────────────────────────────────────────────────────
   renderer.onTap = (hit: Hit) => handleCanvasTap(hit, fs, model, refresh, renderer);
 

@@ -94,10 +94,13 @@ header {
 /* ── Layout ── */
 main {
   flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-  padding-bottom: var(--sheet-h, 0);
+  /* Резерв снизу = max(высота шторки, высота тулбара): canvas заканчивается на
+     краю того, что стоит снизу — тулбар или шторка. Шторка едет ПОВЕРХ
+     тулбара (он абсолютно позиционирован и накрывается). */
+  padding-bottom: max(var(--sheet-h, 0px), var(--tool-h, 0px));
   transition: padding-bottom .25s ease;
+  position: relative;
 }
-/* tool-area остаётся видимой над любой шторкой — никаких пустых зон при анимации */
 
 .canvas-section {
   background: var(--canvas-bg); position: relative; overflow: hidden;
@@ -182,8 +185,9 @@ main {
 .edit-body {
   flex: 1 1 auto; display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
-  padding-bottom: var(--sheet-h, 0);
+  padding-bottom: max(var(--sheet-h, 0px), var(--tool-h, 0px));
   transition: padding-bottom .25s ease;
+  position: relative;
 }
 .cart-row { cursor: pointer; }
 .canvas-section::before {
@@ -199,8 +203,10 @@ main {
 .tool-area {
   background: var(--surface); border-top: 1px solid var(--border);
   padding: 10px 0 8px; display: flex; flex-direction: column;
-  flex: 0 1 auto; max-height: 50dvh; overflow-y: auto;
+  position: absolute; left: 0; right: 0; bottom: 0;
+  max-height: 50dvh; overflow-y: auto;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  z-index: 1;
 }
 .tool-header { padding: 0 16px 8px; }
 .tool-header {
