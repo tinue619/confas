@@ -213,7 +213,7 @@ function openHingeEditor(fs: FacadeState, model: any, index: number, refresh: ()
 
     btns.append(del, ok);
     body.appendChild(btns);
-  }, { dim: false, onClose: () => renderer?.setEditingHinge(null) });
+  }, { id: `hinge-${index}`, dim: false, onClose: () => renderer?.setEditingHinge(null) });
   // Suppress unused
   void model;
 }
@@ -249,7 +249,7 @@ function openDimensionEditor(fs: FacadeState, model: any, axis: 'width' | 'heigh
         refresh();
       },
     });
-  }, { dim: false });
+  }, { id: `dim-${axis}`, dim: false });
 }
 
 function openProfileEditor(fs: FacadeState, refresh: () => void) {
@@ -262,7 +262,7 @@ function openProfileEditor(fs: FacadeState, refresh: () => void) {
       value: fs.profileColor,
       onChange: v => { fs.profileColor = v; refresh(); },
     });
-  }, { dim: false });
+  }, { id: 'profile', dim: false });
 }
 
 function openGlassEditor(fs: FacadeState, refresh: () => void) {
@@ -293,7 +293,7 @@ function openGlassEditor(fs: FacadeState, refresh: () => void) {
       refresh();
     };
     body.appendChild(row);
-  }, { dim: false });
+  }, { id: 'glass', dim: false });
 }
 
 function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh: () => void) {
@@ -409,7 +409,7 @@ function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
       body.appendChild(ctaRow);
     };
     renderInside();
-  });
+  }, { id: 'cart' });
 }
 
 function fillCart(body: HTMLElement, rerender: () => void, _close: () => void) {
@@ -502,12 +502,16 @@ function configSummary(c: FacadeConfig): string {
 
 // ─── Bottom sheet helper ──────────────────────────────────────────────────────
 
-interface OpenSheetOpts { dim?: boolean; onClose?: () => void }
+interface OpenSheetOpts { id?: string; dim?: boolean; onClose?: () => void }
 let activeSheetClose: (() => void) | null = null;
+let activeSheetId: string | null = null;
 function openSheet(title: string, render: (body: HTMLElement, close: () => void) => void, opts: OpenSheetOpts = {}) {
+  // Та же шторка уже открыта — игнорируем повторный тап
+  if (opts.id && activeSheetId === opts.id) return;
   const switching = activeSheetClose !== null;
   // Закрываем предыдущую шторку без анимации — чтобы не дублировались
   activeSheetClose?.();
+  activeSheetId = opts.id ?? null;
   const dim = opts.dim ?? true;
   const onClose = opts.onClose;
   const overlay = document.createElement('div');
@@ -549,7 +553,7 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   const close = () => {
     if (closed) return;
     closed = true;
-    if (activeSheetClose === close) activeSheetClose = null;
+    if (activeSheetClose === close) { activeSheetClose = null; activeSheetId = null; }
     sheetRo.disconnect();
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
