@@ -512,6 +512,10 @@ body.has-sheet .tool-area { display: none; }
   font-size: 12px; min-width: 0;
 }
 .cart-row:first-of-type { border-top: none; }
+.cart-facade-icon {
+  width: 16px; height: 22px; flex: 0 0 auto; border-radius: 1.5px;
+  display: block;
+}
 .cart-row-name {
   font-weight: 600; color: var(--text); white-space: nowrap; flex: 0 0 auto;
 }
