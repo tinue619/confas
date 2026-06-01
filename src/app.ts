@@ -663,8 +663,8 @@ function showCartPreview(item: OrderItem, model: any, num: number): () => void {
 }
 
 /** Удержание тапа на строке: показывает превью, отпустил — скрыл.
-    Движение пальца после открытия превью не закрывает его — только реальное
-    отпускание (pointerup/cancel ловим на document, не на row). */
+    После открытия превью «ловим» пойнтер на row через setPointerCapture —
+    финал-pointerup приходит на row независимо от того, куда уехал палец. */
 function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: number) {
   let timer: number | null = null;
   let startX = 0, startY = 0;
@@ -672,35 +672,42 @@ function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: numbe
   row.addEventListener('pointerdown', e => {
     const t = e.target as HTMLElement;
     if (t.closest('button, input')) return;
+    const pid = e.pointerId;
     startX = e.clientX; startY = e.clientY;
-    const cancelTimer = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+
+    const earlyRelease = (ev: PointerEvent) => {
+      if (ev.pointerId !== pid) return;
+      if (timer !== null) { clearTimeout(timer); timer = null; }
+      row.removeEventListener('pointerup', earlyRelease);
+      row.removeEventListener('pointercancel', earlyRelease);
+    };
+    row.addEventListener('pointerup', earlyRelease);
+    row.addEventListener('pointercancel', earlyRelease);
 
     timer = window.setTimeout(() => {
       timer = null;
+      // Захватываем пойнтер: события для него теперь приходят на row,
+      // даже если палец уехал в другой угол экрана.
+      try { row.setPointerCapture(pid); } catch {}
+      // earlyRelease можно снять — он бы лишь обнулил уже null таймер.
+      row.removeEventListener('pointerup', earlyRelease);
+      row.removeEventListener('pointercancel', earlyRelease);
+
       if ((navigator as any).vibrate) (navigator as any).vibrate(12);
       const closePreview = showCartPreview(item, model, num);
-      // Закрывается только при реальном отпускании пальца (где угодно на экране)
-      const onUp = () => {
-        closePreview();
-        document.removeEventListener('pointerup', onUp);
-        document.removeEventListener('pointercancel', onUp);
-      };
-      document.addEventListener('pointerup', onUp);
-      document.addEventListener('pointercancel', onUp);
-    }, 450);
 
-    // Если отпустили раньше срабатывания таймера — отменяем открытие
-    const earlyRelease = () => {
-      cancelTimer();
-      document.removeEventListener('pointerup', earlyRelease);
-      document.removeEventListener('pointercancel', earlyRelease);
-    };
-    document.addEventListener('pointerup', earlyRelease);
-    document.addEventListener('pointercancel', earlyRelease);
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pid) return;
+        closePreview();
+        row.removeEventListener('pointerup', onUp);
+        row.removeEventListener('pointercancel', onUp);
+      };
+      row.addEventListener('pointerup', onUp);
+      row.addEventListener('pointercancel', onUp);
+    }, 450);
   });
 
-  // Сдвиг до открытия превью — отмена; после открытия — игнор (движение
-  // обрабатывается уже не нами).
+  // Сдвиг до открытия превью — отмена; после — игнор (захват держит пойнтер).
   row.addEventListener('pointermove', e => {
     if (timer === null) return;
     if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) {
