@@ -136,6 +136,33 @@ body.has-sheet .tool-area { display: none; }
   background: var(--canvas-bg); position: relative; overflow: hidden;
   flex: 1 1 auto; min-height: 180px;
 }
+
+/* FAB: добавить текущий фасад в корзину одним тапом */
+.add-fab {
+  position: absolute; right: 12px; bottom: 12px;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 10px 14px;
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 999px;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+  z-index: 5;
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+.add-fab:hover { background: var(--accent2); }
+.add-fab:active { transform: scale(0.94); }
+.add-fab .add-fab-plus { font-size: 16px; line-height: 1; }
+.add-fab .add-fab-cart {
+  display: inline-flex; width: 16px; height: 16px;
+}
+.add-fab .add-fab-cart svg { width: 100%; height: 100%; }
+@keyframes fabPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); box-shadow: 0 6px 22px rgba(var(--accent-rgb), 0.55); }
+  100% { transform: scale(1); }
+}
+.add-fab--pop { animation: fabPop .35s ease; }
 .canvas-section::before {
   content: ''; position: absolute; inset: 0;
   background-image:

@@ -57,6 +57,10 @@ export function mountApp(root: HTMLElement) {
     <main>
       <div class="canvas-section">
         <canvas id="facade-canvas"></canvas>
+        <button class="add-fab" id="add-fab" aria-label="Добавить в корзину">
+          <span class="add-fab-plus">+</span>
+          <span class="add-fab-cart">${ICON.cart}</span>
+        </button>
       </div>
       <div class="tool-area" id="tool-area"></div>
     </main>
@@ -67,6 +71,7 @@ export function mountApp(root: HTMLElement) {
   const priceTag = document.getElementById('price-tag') as HTMLElement;
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
+  const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
   const themeBtn = document.getElementById('theme-btn') as HTMLButtonElement;
 
   // Переключатель темы
@@ -123,6 +128,14 @@ export function mountApp(root: HTMLElement) {
 
   // ── Корзина ────────────────────────────────────────────────────────────
   cartBtn.onclick = () => openCartSheet(fs, model, refresh);
+  addFab.onclick = () => {
+    addCurrentToCart(fs, model);
+    // Лёгкая обратная связь — pop-анимация и вибрация
+    addFab.classList.remove('add-fab--pop');
+    void addFab.offsetWidth;
+    addFab.classList.add('add-fab--pop');
+    if ((navigator as any).vibrate) (navigator as any).vibrate(8);
+  };
 
   store.subscribe(updateCart);
   renderTool();
@@ -375,35 +388,32 @@ function toolHeader(area: HTMLElement, title: string, hint = '') {
 
 // ─── Корзина (шторка) ─────────────────────────────────────────────────────────
 
+function addCurrentToCart(fs: FacadeState, model: any) {
+  const br = calcPrice(model, fs);
+  const cfg: FacadeConfig = {
+    width: fs.width, height: fs.height,
+    profileColor: fs.profileColor, glassColor: fs.glassColor, glassType: fs.glassType,
+    tempered: fs.tempered, hingeMode: fs.hingeMode, hingeSide: fs.hingeSide,
+    hingePositions: [...fs.hingePositions],
+  };
+  store.addItem({
+    id: store.newId(),
+    modelRef: { category: 'facade', modelId: 'wide' },
+    modelName: model.name,
+    config: cfg, priceSnapshot: br, qty: 1,
+    addedAt: new Date().toISOString(),
+  });
+}
+
 function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
   openSheet('Корзина', (body, close) => {
     const renderInside = () => {
       body.innerHTML = '';
-
-      // Добавить текущий фасад — лёгкая ссылка сверху, не конкурирует с Оформить
       const addBtn = document.createElement('button');
       addBtn.className = 'cart-add';
       addBtn.textContent = '+ Добавить текущий фасад';
-      addBtn.onclick = () => {
-        const br = calcPrice(model, fs);
-        const cfg: FacadeConfig = {
-          width: fs.width, height: fs.height,
-          profileColor: fs.profileColor, glassColor: fs.glassColor, glassType: fs.glassType,
-          tempered: fs.tempered, hingeMode: fs.hingeMode, hingeSide: fs.hingeSide,
-          hingePositions: [...fs.hingePositions],
-        };
-        store.addItem({
-          id: store.newId(),
-          modelRef: { category: 'facade', modelId: 'wide' },
-          modelName: model.name,
-          config: cfg, priceSnapshot: br, qty: 1,
-          addedAt: new Date().toISOString(),
-        });
-        renderInside();
-        refresh();
-      };
+      addBtn.onclick = () => { addCurrentToCart(fs, model); renderInside(); refresh(); };
       body.appendChild(addBtn);
-
       fillCart(body, () => renderInside(), close);
     };
     renderInside();
