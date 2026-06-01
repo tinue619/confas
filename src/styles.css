@@ -75,6 +75,7 @@ header {
   letter-spacing: 0.16em; color: var(--text);
   flex: 1; text-align: center;
 }
+.header-title--editing { color: var(--accent); }
 .cart-btn .cart-icon { display: inline-flex; width: 16px; height: 16px; color: var(--text); }
 .cart-btn .cart-icon svg { width: 100%; height: 100%; }
 .cart-btn .cart-total {
@@ -148,6 +149,23 @@ body.has-sheet .tool-area { display: none; }
   100% { transform: scale(1); }
 }
 .add-fab--pop { animation: fabPop .35s ease; }
+
+/* FAB режима редактирования: «✓ Готово» */
+.edit-done-fab {
+  position: absolute; right: 12px; bottom: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 18px;
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+  z-index: 5;
+  transition: background .15s, transform .12s;
+}
+.edit-done-fab:hover { background: var(--accent2); }
+.edit-done-fab:active { transform: scale(0.96); }
+.cart-row { cursor: pointer; }
 .canvas-section::before {
   content: ''; position: absolute; inset: 0;
   background-image:

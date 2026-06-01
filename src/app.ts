@@ -54,6 +54,7 @@ export function mountApp(root: HTMLElement) {
             <span class="add-fab-cart">${ICON.cart}</span>
           </button>
         </div>
+        <button class="edit-done-fab" id="edit-done-fab" hidden>✓ Готово</button>
       </div>
       <div class="tool-area" id="tool-area"></div>
     </main>
@@ -65,15 +66,72 @@ export function mountApp(root: HTMLElement) {
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
   const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
+  const editDoneFab = document.getElementById('edit-done-fab') as HTMLButtonElement;
+  const headerTitleEl = document.querySelector('.header-title') as HTMLElement;
 
   // ── Рендерер canvas ────────────────────────────────────────────────────
   const renderer = new FacadeRenderer(canvas);
   renderer.setModel(model);
   renderer.setState(fs);
 
+  // ── Режим редактирования позиции корзины ─────────────────────────────
+  let editingItemId: string | null = null;
+  const enterEditMode = (id: string) => {
+    const item = store.getOrder().items.find(i => i.id === id);
+    if (!item) return;
+    editingItemId = id;
+    // Загружаем конфиг позиции в текущее состояние
+    fs.width = item.config.width;
+    fs.height = item.config.height;
+    fs.profileColor = item.config.profileColor;
+    fs.glassColor = item.config.glassColor;
+    fs.glassType = item.config.glassType;
+    fs.tempered = item.config.tempered;
+    fs.hingeMode = item.config.hingeMode;
+    fs.hingeSide = item.config.hingeSide;
+    fs.hingePositions = [...item.config.hingePositions];
+    refresh();
+    updateEditUi();
+    renderTool();
+  };
+  const exitEditMode = () => {
+    editingItemId = null;
+    updateEditUi();
+  };
+  const updateEditUi = () => {
+    if (editingItemId) {
+      const idx = store.getOrder().items.findIndex(i => i.id === editingItemId);
+      headerTitleEl.textContent = idx >= 0 ? `ПОЗИЦИЯ ${idx + 1}` : 'РЕДАКТОР';
+      headerTitleEl.classList.add('header-title--editing');
+      addFab.hidden = true;
+      editDoneFab.hidden = false;
+    } else {
+      headerTitleEl.textContent = 'РЕДАКТОР';
+      headerTitleEl.classList.remove('header-title--editing');
+      addFab.hidden = false;
+      editDoneFab.hidden = true;
+    }
+  };
+  editDoneFab.onclick = () => exitEditMode();
+
   const refresh = () => {
     renderer.redraw();
     updatePrice();
+    // В режиме редактирования синхронизируем изменения обратно в позицию
+    if (editingItemId) {
+      const br = calcPrice(model, fs);
+      store.updateItem(editingItemId, it => ({
+        ...it,
+        config: {
+          width: fs.width, height: fs.height,
+          profileColor: fs.profileColor, glassColor: fs.glassColor,
+          glassType: fs.glassType, tempered: fs.tempered,
+          hingeMode: fs.hingeMode, hingeSide: fs.hingeSide,
+          hingePositions: [...fs.hingePositions],
+        },
+        priceSnapshot: br,
+      }));
+    }
   };
   const updatePrice = () => {
     const br = calcPrice(model, fs);
@@ -104,7 +162,7 @@ export function mountApp(root: HTMLElement) {
   };
 
   // ── Корзина ────────────────────────────────────────────────────────────
-  cartBtn.onclick = () => openCartSheet(fs, model, refresh);
+  cartBtn.onclick = () => openCartSheet(fs, model, refresh, enterEditMode);
 
   // Степпер количества внутри FAB + кнопка «добавить N штук»
   const fabQtyEl = document.getElementById('add-fab-qty') as HTMLElement;
@@ -418,18 +476,18 @@ function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
   });
 }
 
-function openCartSheet(fs: FacadeState, model: any, refresh: () => void) {
+function openCartSheet(fs: FacadeState, model: any, refresh: () => void, onEdit: (id: string) => void) {
   void fs; void refresh;
   openSheet('Корзина', (body, close) => {
     const renderInside = () => {
       body.innerHTML = '';
-      fillCart(body, () => renderInside(), close, model);
+      fillCart(body, () => renderInside(), close, model, (id) => { onEdit(id); close(); });
     };
     renderInside();
   }, { id: 'cart' });
 }
 
-function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, model: any) {
+function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, model: any, onEdit: (id: string) => void) {
   const order = store.getOrder();
   if (order.items.length === 0) {
     const e = document.createElement('div');
@@ -466,6 +524,12 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
     (row.querySelector('.cart-row-del') as HTMLButtonElement).onclick = () => {
       store.removeItem(item.id); rerender();
     };
+    // Тап по строке (вне интерактивных детей) — редактировать позицию
+    row.addEventListener('click', e => {
+      const t = e.target as HTMLElement;
+      if (t.closest('button, input')) return;
+      onEdit(item.id);
+    });
     bindLongPress(row, item, model, i + 1);
     body.appendChild(row);
   }
