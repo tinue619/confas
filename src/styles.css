@@ -97,9 +97,7 @@ main {
   padding-bottom: var(--sheet-h, 0);
   transition: padding-bottom .25s ease;
 }
-/* tool-area скрывается, когда шторка открыта (управление petля поверх не нужно).
-   Чтобы canvas не дёргался, мы синхронизируем display:none с padding-bottom в JS. */
-body.has-sheet .tool-area { display: none; }
+/* tool-area остаётся видимой над любой шторкой — никаких пустых зон при анимации */
 
 .canvas-section {
   background: var(--canvas-bg); position: relative; overflow: hidden;
@@ -149,9 +147,11 @@ body.has-sheet .tool-area { display: none; }
 }
 .add-fab--pop { animation: fabPop .35s ease; }
 
-/* Полноэкранный оверлей редактора позиции корзины */
+/* Полноэкранный оверлей редактора позиции корзины.
+   z-index: 90 — выше main, но ниже шторок (101), чтобы редакторы
+   размера/материалов/стекла открывались поверх. */
 .edit-overlay {
-  position: fixed; inset: 0; z-index: 110;
+  position: fixed; inset: 0; z-index: 90;
   background: var(--bg);
   display: flex; flex-direction: column;
   transform: translateY(100%);
@@ -182,6 +182,8 @@ body.has-sheet .tool-area { display: none; }
 .edit-body {
   flex: 1 1 auto; display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
+  padding-bottom: var(--sheet-h, 0);
+  transition: padding-bottom .25s ease;
 }
 .cart-row { cursor: pointer; }
 .canvas-section::before {

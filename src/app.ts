@@ -83,16 +83,18 @@ export function mountApp(root: HTMLElement) {
     const item = store.getOrder().items.find(i => i.id === id);
     if (!item) return;
     editingItemId = id;
-    // Загружаем конфиг позиции в текущее состояние
-    fs.width = item.config.width;
-    fs.height = item.config.height;
-    fs.profileColor = item.config.profileColor;
-    fs.glassColor = item.config.glassColor;
-    fs.glassType = item.config.glassType;
-    fs.tempered = item.config.tempered;
-    fs.hingeMode = item.config.hingeMode;
-    fs.hingeSide = item.config.hingeSide;
-    fs.hingePositions = [...item.config.hingePositions];
+
+    // Отдельное состояние для редактирования — основной fs не трогаем.
+    const editFs = new FacadeState();
+    editFs.width = item.config.width;
+    editFs.height = item.config.height;
+    editFs.profileColor = item.config.profileColor;
+    editFs.glassColor = item.config.glassColor;
+    editFs.glassType = item.config.glassType;
+    editFs.tempered = item.config.tempered;
+    editFs.hingeMode = item.config.hingeMode;
+    editFs.hingeSide = item.config.hingeSide;
+    editFs.hingePositions = [...item.config.hingePositions];
 
     const idx = store.getOrder().items.findIndex(i => i.id === id);
     const overlay = document.createElement('div');
@@ -102,60 +104,58 @@ export function mountApp(root: HTMLElement) {
         <div class="edit-title">ПОЗИЦИЯ ${idx + 1}</div>
         <button class="edit-save" id="edit-save">✓ Готово</button>
       </div>
-      <div class="edit-body"></div>`;
+      <div class="edit-body">
+        <div class="canvas-section">
+          <canvas></canvas>
+        </div>
+        <div class="tool-area" id="edit-tool-area"></div>
+      </div>`;
     document.body.appendChild(overlay);
 
-    const editBody = overlay.querySelector('.edit-body') as HTMLElement;
-    const canvasSection = document.querySelector('.canvas-section') as HTMLElement;
-    editBody.appendChild(canvasSection);
-    editBody.appendChild(toolArea);
+    const editCanvas = overlay.querySelector('canvas') as HTMLCanvasElement;
+    const editToolArea = overlay.querySelector('#edit-tool-area') as HTMLElement;
+    const editRenderer = new FacadeRenderer(editCanvas);
+    editRenderer.setModel(model);
+    editRenderer.setState(editFs);
+
+    const editRefresh = () => {
+      editRenderer.redraw();
+      const br = calcPrice(model, editFs);
+      store.updateItem(id, it => ({
+        ...it,
+        config: {
+          width: editFs.width, height: editFs.height,
+          profileColor: editFs.profileColor, glassColor: editFs.glassColor,
+          glassType: editFs.glassType, tempered: editFs.tempered,
+          hingeMode: editFs.hingeMode, hingeSide: editFs.hingeSide,
+          hingePositions: [...editFs.hingePositions],
+        },
+        priceSnapshot: br,
+      }));
+    };
+
+    editRenderer.onTap = (hit: Hit) => handleCanvasTap(hit, editFs, model, editRefresh, editRenderer);
+    mountHingesTool(editToolArea, editFs, model, editRefresh);
 
     editOverlay = overlay;
     (overlay.querySelector('#edit-save') as HTMLButtonElement).onclick = exitEditMode;
-
-    requestAnimationFrame(() => overlay.classList.add('edit-overlay--open'));
-
-    refresh();
-    renderTool();
+    requestAnimationFrame(() => {
+      overlay.classList.add('edit-overlay--open');
+      editRefresh();
+    });
   };
 
   const exitEditMode = () => {
-    if (!editOverlay) {
-      editingItemId = null;
-      return;
-    }
+    if (!editOverlay) { editingItemId = null; return; }
     const overlay = editOverlay;
     editOverlay = null;
     overlay.classList.remove('edit-overlay--open');
-    setTimeout(() => {
-      const main = document.querySelector('main') as HTMLElement;
-      const canvasSection = document.querySelector('.canvas-section') as HTMLElement;
-      // canvasSection и toolArea сейчас оба в overlay, .appendChild их переносит
-      main.appendChild(canvasSection);
-      main.appendChild(toolArea);
-      overlay.remove();
-      editingItemId = null;
-    }, 300);
+    setTimeout(() => { overlay.remove(); editingItemId = null; }, 300);
   };
 
   const refresh = () => {
     renderer.redraw();
     updatePrice();
-    // В режиме редактирования синхронизируем изменения обратно в позицию
-    if (editingItemId) {
-      const br = calcPrice(model, fs);
-      store.updateItem(editingItemId, it => ({
-        ...it,
-        config: {
-          width: fs.width, height: fs.height,
-          profileColor: fs.profileColor, glassColor: fs.glassColor,
-          glassType: fs.glassType, tempered: fs.tempered,
-          hingeMode: fs.hingeMode, hingeSide: fs.hingeSide,
-          hingePositions: [...fs.hingePositions],
-        },
-        priceSnapshot: br,
-      }));
-    }
   };
   const updatePrice = () => {
     const br = calcPrice(model, fs);
@@ -846,22 +846,7 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   const body = sheet.querySelector('.sheet-body') as HTMLElement;
   document.body.append(overlay, sheet);
 
-  // Для плавной анимации запоминаем высоту tool-area — это «безопасный» padding,
-  // при котором canvas не меняет размер ровно в момент скрытия tool-area.
-  const mainEl = document.querySelector('main') as HTMLElement;
-  const toolEl = document.getElementById('tool-area') as HTMLElement | null;
-  const toolH = !switching && toolEl ? toolEl.getBoundingClientRect().height : 0;
-
-  if (!switching) {
-    // Мгновенно ставим padding = высоте tool-area + скрываем tool-area.
-    // Canvas сохраняет тот же размер — нет рывка.
-    mainEl.style.transition = 'none';
-    document.documentElement.style.setProperty('--sheet-h', toolH + 'px');
-    document.body.classList.add('has-sheet');
-    void mainEl.offsetHeight; // force reflow
-    mainEl.style.transition = '';
-  }
-
+  void switching;
   const updateSheetH = () => {
     const h = sheet.getBoundingClientRect().height;
     document.documentElement.style.setProperty('--sheet-h', h + 'px');
@@ -877,20 +862,9 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
-    // На закрытии возвращаем padding к высоте tool-area плавно — canvas
-    // расширяется параллельно с уезжанием шторки.
-    if (toolH > 0) {
-      document.documentElement.style.setProperty('--sheet-h', toolH + 'px');
-    }
     setTimeout(() => {
       if (activeSheetClose === null) {
-        // Анимация завершена — мгновенно показываем tool-area и сбрасываем padding.
-        // Canvas не меняет размер (padding=toolH без tool-area == padding=0 с tool-area).
-        mainEl.style.transition = 'none';
         document.documentElement.style.removeProperty('--sheet-h');
-        document.body.classList.remove('has-sheet');
-        void mainEl.offsetHeight;
-        mainEl.style.transition = '';
       }
       overlay.remove();
       sheet.remove();
