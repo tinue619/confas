@@ -17,18 +17,7 @@ import { Carousel } from './carousel';
 const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
-  sun:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`,
-  moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`,
 };
-
-const THEME_KEY = 'facade-theme';
-function initTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved === 'light' || saved === 'dark') {
-    document.documentElement.setAttribute('data-theme', saved);
-  }
-}
-initTheme();
 
 export function mountApp(root: HTMLElement) {
   root.innerHTML = '';
@@ -48,7 +37,7 @@ export function mountApp(root: HTMLElement) {
   root.insertAdjacentHTML('beforeend', `
     <header>
       <div class="price-tag" id="price-tag">—</div>
-      <button class="theme-btn" id="theme-btn" aria-label="Сменить тему"></button>
+      <div class="header-title">РЕДАКТОР</div>
       <button class="cart-btn" id="cart-btn">
         <span class="cart-icon">${ICON.cart}</span>
         <span class="cart-total" id="cart-total">—</span>
@@ -76,22 +65,6 @@ export function mountApp(root: HTMLElement) {
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
   const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
-  const themeBtn = document.getElementById('theme-btn') as HTMLButtonElement;
-
-  // Переключатель темы
-  const updateThemeBtn = () => {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    themeBtn.innerHTML = isLight ? ICON.moon : ICON.sun;
-  };
-  updateThemeBtn();
-  themeBtn.onclick = () => {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const next = isLight ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem(THEME_KEY, next);
-    updateThemeBtn();
-    refresh();
-  };
 
   // ── Рендерер canvas ────────────────────────────────────────────────────
   const renderer = new FacadeRenderer(canvas);
