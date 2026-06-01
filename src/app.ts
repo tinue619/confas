@@ -859,13 +859,16 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
     closed = true;
     if (activeSheetClose === close) { activeSheetClose = null; activeSheetId = null; }
     sheetRo.disconnect();
+    // Снимаем padding одновременно со стартом slide-down шторки — canvas
+    // расширяется синхронно (CSS transition .25s на padding-bottom).
+    // Шторка имеет z-index выше канваса, поэтому визуально «накрывает» рост.
+    if (activeSheetClose === null) {
+      document.documentElement.style.removeProperty('--sheet-h');
+    }
     overlay.classList.remove('sheet-overlay--open');
     sheet.classList.remove('sheet--open');
     sheet.style.transform = '';
     setTimeout(() => {
-      if (activeSheetClose === null) {
-        document.documentElement.style.removeProperty('--sheet-h');
-      }
       overlay.remove();
       sheet.remove();
     }, 250);
