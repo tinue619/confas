@@ -493,7 +493,7 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
     (row.querySelector('.cart-row-del') as HTMLButtonElement).onclick = () => {
       store.removeItem(item.id); rerender();
     };
-    bindLongPress(row, item, model);
+    bindLongPress(row, item, model, i + 1);
     body.appendChild(row);
   }
 
@@ -627,7 +627,8 @@ function _facadePreviewSVG_unused(c: FacadeConfig): string {
   </svg>`;
 }
 
-function showCartPreview(item: OrderItem, model: any) {
+/** Показывает превью; возвращает функцию-закрывалку */
+function showCartPreview(item: OrderItem, model: any, num: number): () => void {
   const overlay = document.createElement('div');
   overlay.className = 'preview-overlay';
   const card = document.createElement('div');
@@ -635,8 +636,9 @@ function showCartPreview(item: OrderItem, model: any) {
   const specBits = compactSpec(item.config);
   card.innerHTML = `
     <div class="preview-header">
-      <span class="preview-num">${item.qty > 1 ? `×${item.qty}` : ''}</span>
+      <span class="preview-num">${num}.</span>
       <span class="preview-size">${item.config.width}×${item.config.height}</span>
+      ${item.qty > 1 ? `<span class="preview-qty">×${item.qty}</span>` : ''}
     </div>
     <div class="preview-canvas-wrap">
       <canvas></canvas>
@@ -654,43 +656,39 @@ function showCartPreview(item: OrderItem, model: any) {
   const renderer = new FacadeRenderer(canvas);
   renderer.setModel(model);
   renderer.setState(tmpState);
-  // Превью статичное — тапы по канвасу не нужны
   renderer.onTap = null;
   requestAnimationFrame(() => renderer.redraw());
 
-  // Закрытие
-  const close = () => overlay.remove();
-  overlay.addEventListener('pointerdown', e => {
-    if (e.target === overlay) close();
-  });
-  document.addEventListener('keydown', function onKey(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
-  });
+  return () => overlay.remove();
 }
 
-/** Привязывает long-press → showCartPreview к элементу строки */
-function bindLongPress(row: HTMLElement, item: OrderItem, model: any) {
+/** Удержание тапа на строке: показывает превью, отпустил — скрыл */
+function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: number) {
   let timer: number | null = null;
   let startX = 0, startY = 0;
-  const cancel = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+  let closePreview: (() => void) | null = null;
+  const cancelTimer = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+  const closeNow = () => { if (closePreview) { closePreview(); closePreview = null; } };
+  const release = () => { cancelTimer(); closeNow(); };
+
   row.addEventListener('pointerdown', e => {
-    // Игнорируем нажатия на интерактивные дочерние элементы (кнопки/инпуты)
     const t = e.target as HTMLElement;
     if (t.closest('button, input')) return;
     startX = e.clientX; startY = e.clientY;
     timer = window.setTimeout(() => {
       timer = null;
       if ((navigator as any).vibrate) (navigator as any).vibrate(12);
-      showCartPreview(item, model);
+      closePreview = showCartPreview(item, model, num);
     }, 450);
   });
   row.addEventListener('pointermove', e => {
+    // Если ещё ждём таймер — отмена при сдвиге; превью уже открыто — игнорируем сдвиги
     if (timer === null) return;
-    if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) cancel();
+    if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) cancelTimer();
   });
-  row.addEventListener('pointerup', cancel);
-  row.addEventListener('pointercancel', cancel);
-  row.addEventListener('pointerleave', cancel);
+  row.addEventListener('pointerup', release);
+  row.addEventListener('pointercancel', release);
+  row.addEventListener('pointerleave', release);
 }
 
 /** SVG-пиктограмма фасада: рама цветом профиля, стекло цветом + текстура */

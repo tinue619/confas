@@ -649,15 +649,15 @@ body.has-sheet .tool-area { display: none; }
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px; width: 100%;
 }
-.preview-num {
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
-  color: var(--muted); font-weight: 600;
+.preview-num,
+.preview-size,
+.preview-qty {
+  font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  letter-spacing: -0.02em;
 }
-.preview-num small { color: var(--accent); margin-left: 4px; }
-.preview-size {
-  font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700;
-  color: var(--text); letter-spacing: -0.02em;
-}
+.preview-num  { font-size: 16px; color: var(--text); }
+.preview-size { font-size: 16px; color: var(--text); flex: 1; text-align: center; }
+.preview-qty  { font-size: 13px; color: var(--accent); }
 .preview-canvas-wrap {
   position: relative;
   background: var(--canvas-bg);
