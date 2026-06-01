@@ -623,6 +623,50 @@ body.has-sheet .tool-area { display: none; }
 }
 .cart-footer .btn { padding: 8px 14px; min-height: 36px; font-size: 12px; }
 
+/* Long-press превью позиции корзины */
+.preview-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: previewFadeIn .15s ease;
+}
+@keyframes previewFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.preview-card {
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 16px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  max-width: 90vw; max-height: 90vh;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  animation: previewPop .2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes previewPop {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.preview-header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; width: 100%;
+}
+.preview-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted); font-weight: 600;
+}
+.preview-num small { color: var(--accent); margin-left: 4px; }
+.preview-size {
+  font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700;
+  color: var(--text); letter-spacing: -0.02em;
+}
+.preview-svg {
+  display: block; width: 100%; max-width: 280px;
+  height: auto;
+}
+.preview-spec {
+  font-size: 11px; color: var(--muted2); text-align: center;
+  max-width: 280px;
+}
+
 /* ── Field label ── */
 .field-label {
   display: block; font-size: 11px; color: var(--muted);
