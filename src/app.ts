@@ -147,6 +147,9 @@ export function mountApp(root: HTMLElement) {
 
   const exitEditMode = () => {
     if (!editOverlay) { editingItemId = null; return; }
+    // Если внутри редактора была открыта шторка (размер/материал/петля) —
+    // закрываем её вместе с оверлеем.
+    activeSheetClose?.();
     const overlay = editOverlay;
     editOverlay = null;
     overlay.classList.remove('edit-overlay--open');
