@@ -101,7 +101,10 @@ export function mountApp(root: HTMLElement) {
     overlay.className = 'edit-overlay';
     overlay.innerHTML = `
       <div class="edit-header">
-        <div class="edit-title">ПОЗИЦИЯ ${idx + 1}</div>
+        <div class="edit-title">
+          <span class="edit-num">${idx + 1}.</span>
+          <span class="edit-size" id="edit-size">${editFs.width}×${editFs.height}</span>
+        </div>
         <button class="edit-save" id="edit-save">✓ Готово</button>
       </div>
       <div class="edit-body">
@@ -114,12 +117,14 @@ export function mountApp(root: HTMLElement) {
 
     const editCanvas = overlay.querySelector('canvas') as HTMLCanvasElement;
     const editToolArea = overlay.querySelector('#edit-tool-area') as HTMLElement;
+    const editSizeEl = overlay.querySelector('#edit-size') as HTMLElement;
     const editRenderer = new FacadeRenderer(editCanvas);
     editRenderer.setModel(model);
     editRenderer.setState(editFs);
 
     const editRefresh = () => {
       editRenderer.redraw();
+      editSizeEl.textContent = `${editFs.width}×${editFs.height}`;
       const br = calcPrice(model, editFs);
       store.updateItem(id, it => ({
         ...it,
