@@ -155,6 +155,8 @@ export function mountApp(root: HTMLElement) {
     editOverlay = null;
     overlay.classList.remove('edit-overlay--open');
     setTimeout(() => { overlay.remove(); editingItemId = null; }, 300);
+    // Возвращаемся в корзину, откуда зашли в редактирование позиции.
+    openCart();
   };
 
   const refresh = () => {
@@ -197,7 +199,8 @@ export function mountApp(root: HTMLElement) {
   };
 
   // ── Корзина ────────────────────────────────────────────────────────────
-  cartBtn.onclick = () => openCartSheet(fs, model, refresh, enterEditMode);
+  const openCart = () => openCartSheet(fs, model, refresh, enterEditMode);
+  cartBtn.onclick = openCart;
 
   // Добавление текущего фасада в корзину (идентичные конфиги мёрджатся).
   addFab.onclick = () => {

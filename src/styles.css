@@ -109,9 +109,9 @@ main {
   flex: 1 1 auto; min-height: 180px;
 }
 
-/* FAB: добавить текущий фасад в корзину — одна понятная кнопка */
+/* FAB: добавить текущий фасад в корзину — одна понятная кнопка (верхний угол) */
 .add-fab {
-  position: absolute; right: 14px; bottom: 14px;
+  position: absolute; right: 14px; top: 14px;
   display: inline-flex; align-items: center; gap: 7px;
   padding: 11px 18px;
   background: var(--accent); color: #fff;
