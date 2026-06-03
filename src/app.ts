@@ -37,23 +37,19 @@ export function mountApp(root: HTMLElement) {
   root.insertAdjacentHTML('beforeend', `
     <header>
       <div class="price-tag" id="price-tag">—</div>
-      <div class="header-title">РЕДАКТОР</div>
+      <div class="header-title">Редактор</div>
       <button class="cart-btn" id="cart-btn">
-        <span class="cart-icon">${ICON.cart}</span>
         <span class="cart-total" id="cart-total">—</span>
+        <span class="cart-icon">${ICON.cart}</span>
       </button>
     </header>
     <main>
       <div class="canvas-section">
         <canvas id="facade-canvas"></canvas>
-        <div class="add-fab" id="add-fab">
-          <button class="add-fab-step" data-act="dec" aria-label="меньше">−</button>
-          <span class="add-fab-qty" id="add-fab-qty">1</span>
-          <button class="add-fab-step" data-act="inc" aria-label="больше">+</button>
-          <button class="add-fab-go" id="add-fab-go" aria-label="Добавить в корзину">
-            <span class="add-fab-cart">${ICON.cart}</span>
-          </button>
-        </div>
+        <button class="add-fab" id="add-fab">
+          <span class="add-fab-cart">${ICON.cart}</span>
+          <span class="add-fab-label">В корзину</span>
+        </button>
       </div>
       <div class="tool-area" id="tool-area"></div>
     </main>
@@ -203,25 +199,13 @@ export function mountApp(root: HTMLElement) {
   // ── Корзина ────────────────────────────────────────────────────────────
   cartBtn.onclick = () => openCartSheet(fs, model, refresh, enterEditMode);
 
-  // Степпер количества внутри FAB + кнопка «добавить N штук»
-  const fabQtyEl = document.getElementById('add-fab-qty') as HTMLElement;
-  const fabGoEl  = document.getElementById('add-fab-go')  as HTMLButtonElement;
-  let fabQty = 1;
-  const setFabQty = (n: number) => {
-    fabQty = Math.max(1, Math.min(99, n));
-    fabQtyEl.textContent = String(fabQty);
-  };
-  addFab.querySelectorAll<HTMLButtonElement>('.add-fab-step').forEach(b => {
-    b.onclick = () => setFabQty(fabQty + (b.dataset.act === 'inc' ? 1 : -1));
-  });
-  fabGoEl.onclick = () => {
-    addCurrentToCart(fs, model, fabQty);
-    // Лёгкая обратная связь — pop-анимация и вибрация
+  // Добавление текущего фасада в корзину (идентичные конфиги мёрджатся).
+  addFab.onclick = () => {
+    addCurrentToCart(fs, model, 1);
     addFab.classList.remove('add-fab--pop');
     void addFab.offsetWidth;
     addFab.classList.add('add-fab--pop');
     if ((navigator as any).vibrate) (navigator as any).vibrate(8);
-    setFabQty(1);
   };
 
   store.subscribe(updateCart);

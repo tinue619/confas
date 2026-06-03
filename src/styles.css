@@ -44,51 +44,51 @@ body {
 }
 #app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
 
-/* ── Header ── */
+/* ── Header ──
+   3-колоночный grid: боковые ячейки равной ширины → заголовок строго по центру.
+   Никаких пилюль — плоский текст. Mono только на числах. */
 header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; border-bottom: 1px solid var(--border);
-  background: var(--surface); z-index: 10;
-  gap: 12px; flex: 0 0 auto;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  background: var(--surface); z-index: 10; flex: 0 0 auto;
 }
 .price-tag {
+  justify-self: start;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 14px; font-weight: 600; color: var(--accent);
-  padding: 6px 12px; background: rgba(var(--accent-rgb), 0.08);
-  border: 1px solid rgba(var(--accent-rgb), 0.22); border-radius: 8px;
-  letter-spacing: -0.02em; line-height: 1.2;
+  font-size: 15px; font-weight: 600; color: var(--text);
+  letter-spacing: -0.02em; line-height: 1;
 }
 .price-tag .price-warn { color: var(--red); font-size: 12px; margin-left: 4px; }
 
-.cart-btn {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--surface2); border: 1px solid var(--border);
-  color: var(--text); padding: 6px 12px; border-radius: 8px;
-  font-family: inherit; font-size: 13px; cursor: pointer;
-  position: relative; transition: border-color .15s;
-}
-.cart-btn:hover { border-color: var(--surface3); }
-
 .header-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px; font-weight: 700;
-  letter-spacing: 0.16em; color: var(--text);
-  flex: 1; text-align: center;
+  font-family: 'Onest', sans-serif;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted);
 }
-.cart-btn .cart-icon { display: inline-flex; width: 16px; height: 16px; color: var(--text); }
+
+.cart-btn {
+  justify-self: end;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: none; padding: 0;
+  color: var(--text); font-family: inherit; cursor: pointer;
+  position: relative; transition: opacity .15s;
+}
+.cart-btn:active { opacity: 0.6; }
+.cart-btn .cart-icon { display: inline-flex; width: 20px; height: 20px; color: var(--text); }
 .cart-btn .cart-icon svg { width: 100%; height: 100%; }
 .cart-btn .cart-total {
-  font-family: 'JetBrains Mono', monospace; font-size: 12px;
-  color: var(--accent); font-weight: 600;
+  font-family: 'JetBrains Mono', monospace; font-size: 15px;
+  color: var(--text); font-weight: 600; letter-spacing: -0.02em;
 }
 .cart-btn .cart-badge {
-  position: absolute; top: -6px; right: -6px;
-  background: var(--accent); color: var(--bg);
-  font-size: 10px; font-weight: 700; min-width: 18px; height: 18px;
-  padding: 0 5px; border-radius: 9px; display: inline-flex;
+  position: absolute; top: -7px; right: -9px;
+  background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 700; min-width: 16px; height: 16px;
+  padding: 0 4px; border-radius: 8px; display: inline-flex;
   align-items: center; justify-content: center;
   border: 2px solid var(--surface);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', monospace; line-height: 1;
 }
 
 /* ── Layout ── */
@@ -109,45 +109,25 @@ main {
   flex: 1 1 auto; min-height: 180px;
 }
 
-/* FAB: добавить текущий фасад в корзину (с настройкой количества) */
+/* FAB: добавить текущий фасад в корзину — одна понятная кнопка */
 .add-fab {
-  position: absolute; right: 12px; bottom: 12px;
-  display: inline-flex; align-items: center;
-  background: var(--accent); color: var(--bg);
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
-  z-index: 5;
-  font-family: 'JetBrains Mono', monospace; font-weight: 700;
-  overflow: hidden;
+  position: absolute; right: 14px; bottom: 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 18px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.4);
+  z-index: 5; cursor: pointer;
+  font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 600;
+  transition: background .15s, transform .1s;
 }
-.add-fab-step,
-.add-fab-go {
-  background: transparent; border: none; color: var(--bg);
-  font: inherit; cursor: pointer; padding: 0;
-  transition: background .12s;
-}
-.add-fab-step {
-  width: 28px; height: 36px; font-size: 16px;
-}
-.add-fab-step:hover { background: rgba(0,0,0,0.12); }
-.add-fab-qty {
-  min-width: 18px; text-align: center; font-size: 13px;
-  user-select: none;
-}
-.add-fab-go {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 40px; height: 36px;
-  background: rgba(0,0,0,0.18);
-  margin-left: 2px;
-}
-.add-fab-go:hover { background: rgba(0,0,0,0.28); }
-.add-fab-go .add-fab-cart {
-  display: inline-flex; width: 16px; height: 16px;
-}
-.add-fab-go .add-fab-cart svg { width: 100%; height: 100%; }
+.add-fab:hover { background: var(--accent2); }
+.add-fab:active { transform: scale(0.96); }
+.add-fab .add-fab-cart { display: inline-flex; width: 18px; height: 18px; }
+.add-fab .add-fab-cart svg { width: 100%; height: 100%; }
 @keyframes fabPop {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.12); box-shadow: 0 6px 22px rgba(var(--accent-rgb), 0.55); }
+  40%  { transform: scale(1.08); box-shadow: 0 6px 22px rgba(var(--accent-rgb), 0.55); }
   100% { transform: scale(1); }
 }
 .add-fab--pop { animation: fabPop .35s ease; }
@@ -220,15 +200,12 @@ main {
   gap: 12px; min-width: 0;
 }
 .tool-title {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text); white-space: nowrap;
-  display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
-}
-.tool-title::before {
-  content: ''; width: 3px; height: 12px; background: var(--accent); border-radius: 2px;
-  flex: 0 0 auto;
+  font-family: 'Onest', sans-serif;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; flex: 0 0 auto;
 }
 .tool-hint {
+  font-family: 'Onest', sans-serif;
   font-size: 11px; color: var(--muted2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   min-width: 0; text-align: right;

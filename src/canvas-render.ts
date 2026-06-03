@@ -105,21 +105,21 @@ export class FacadeRenderer {
     ctx.clearRect(0, 0, cw, ch);
 
     const W = this.state.width, H = this.state.height;
-    // Симметрия канваса:
-    //  • снизу — всегда размер ширины,
-    //  • справа — всегда размер высоты,
-    //  • слева — цепочка петель (если они на вертикальной стороне),
-    //  • сверху — цепочка петель (если они на горизонтальной стороне).
+    // Симметричные отступы — фасад всегда строго по центру канваса.
+    // Аннотации (размеры снизу/справа, цепочка петель слева/сверху) живут в
+    // зарезервированных полях; противоположная сторона резервирует столько же,
+    // чтобы прямоугольник не «гулял».
     const hingeMode = this.state.hingeMode;
     const hasHinges = hingeMode !== 'none' && this.state.hingePositions.length > 0;
     const side = this.state.hingeSide;
     const isVerticalSide = side === 'left' || side === 'right';
-    const chainLeft = hasHinges && isVerticalSide;
-    const chainTop  = hasHinges && !isVerticalSide;
-    const padL = PAD_BASE + (chainLeft ? HINGE_CHAIN_GAP : 0);
-    const padR = PAD_BASE + RULER_GAP;
-    const padT = PAD_BASE + (chainTop ? HINGE_CHAIN_GAP : 0);
-    const padB = PAD_BASE + RULER_GAP;
+    const chainH = hasHinges && isVerticalSide ? HINGE_CHAIN_GAP : 0;
+    const chainV = hasHinges && !isVerticalSide ? HINGE_CHAIN_GAP : 0;
+    // По горизонтали: справа RULER_GAP (размер высоты), слева — цепочка петель.
+    // Берём максимум на обе стороны → симметрия.
+    const padX = PAD_BASE + Math.max(RULER_GAP, chainH);
+    const padY = PAD_BASE + Math.max(RULER_GAP, chainV);
+    const padL = padX, padR = padX, padT = padY, padB = padY;
     const availW = cw - padL - padR;
     const availH = ch - padT - padB;
     const scale = Math.min(availW / W, availH / H);
