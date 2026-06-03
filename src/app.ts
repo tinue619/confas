@@ -17,6 +17,7 @@ import { Carousel } from './carousel';
 const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
+  mirror: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7 4 12l4 5M16 7l4 5-4 5"/></svg>`,
 };
 
 export function mountApp(root: HTMLElement) {
@@ -417,28 +418,47 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
     remount();
   };
 
-  // Единая строка: 4 чипа сторон + степпер количества
+  // Единая строка: чипы стороны (Лево/Верх) + зеркало + степпер количества.
+  // Канонная сторона — left/top; зеркало переворачивает на парную right/bottom.
   const row = document.createElement('div');
   row.className = 'hinges-row';
 
+  const isVertical = fs.hingeSide === 'left' || fs.hingeSide === 'right';
+  const flipped = fs.hingeSide === 'right' || fs.hingeSide === 'bottom';
+
   const sides = document.createElement('div');
   sides.className = 'side-chips';
-  const sideOptions: Array<[HingeSide, string]> = [
-    ['left', 'Лево'], ['right', 'Право'], ['top', 'Верх'], ['bottom', 'Низ'],
-  ];
-  for (const [s, label] of sideOptions) {
+  const sideOptions: Array<['left' | 'top', string]> = [['left', 'Лево'], ['top', 'Верх']];
+  for (const [base, label] of sideOptions) {
+    const axisActive = base === 'left' ? isVertical : !isVertical;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'side-chip' + (s === fs.hingeSide ? ' active' : '');
+    b.className = 'side-chip' + (axisActive ? ' active' : '');
     b.textContent = label;
     b.onclick = () => {
-      fs.hingeSide = s;
+      fs.hingeSide = base; // канонная (не зеркальная) ориентация
       fs.hingePositions = autoHingePositions(model.hinges, sideLength(fs));
       refresh();
       remount();
     };
     sides.appendChild(b);
   }
+
+  // Кнопка зеркала: переворачивает на парную сторону (left↔right, top↔bottom).
+  const mirror = document.createElement('button');
+  mirror.type = 'button';
+  mirror.className = 'mirror-btn' + (flipped ? ' active' : '');
+  mirror.innerHTML = `<span class="mirror-icon">${ICON.mirror}</span>`;
+  mirror.title = 'Зеркально';
+  mirror.disabled = count === 0;
+  mirror.onclick = () => {
+    const flip: Record<HingeSide, HingeSide> = {
+      left: 'right', right: 'left', top: 'bottom', bottom: 'top',
+    };
+    fs.hingeSide = flip[fs.hingeSide];
+    refresh();
+    remount();
+  };
 
   const stepper = document.createElement('div');
   stepper.className = 'stepper';
@@ -449,7 +469,7 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
   (stepper.querySelector('[data-act="dec"]') as HTMLButtonElement).onclick = () => setCount(count - 1);
   (stepper.querySelector('[data-act="inc"]') as HTMLButtonElement).onclick = () => setCount(count + 1);
 
-  row.append(sides, stepper);
+  row.append(sides, mirror, stepper);
   area.appendChild(row);
 }
 
