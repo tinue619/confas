@@ -94,10 +94,9 @@ header {
 /* ── Layout ── */
 main {
   flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-  /* Резерв снизу = max(высота шторки, высота тулбара): canvas заканчивается на
-     краю того, что стоит снизу — тулбар или шторка. Шторка едет ПОВЕРХ
-     тулбара (он абсолютно позиционирован и накрывается). */
-  padding-bottom: max(var(--sheet-h, 0px), var(--tool-h, 0px));
+  /* Резерв снизу = тулбар + шторка. Тулбар сидит над шторкой, canvas над
+     тулбаром. Всё едет синхронно (один и тот же .25s ease). */
+  padding-bottom: calc(var(--tool-h, 0px) + var(--sheet-h, 0px));
   transition: padding-bottom .25s ease;
   position: relative;
 }
@@ -188,7 +187,7 @@ main {
 .edit-body {
   flex: 1 1 auto; display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
-  padding-bottom: max(var(--sheet-h, 0px), var(--tool-h, 0px));
+  padding-bottom: calc(var(--tool-h, 0px) + var(--sheet-h, 0px));
   transition: padding-bottom .25s ease;
   position: relative;
 }
@@ -206,7 +205,8 @@ main {
 .tool-area {
   background: var(--surface); border-top: 1px solid var(--border);
   padding: 10px 0 8px; display: flex; flex-direction: column;
-  position: absolute; left: 0; right: 0; bottom: 0;
+  position: absolute; left: 0; right: 0; bottom: var(--sheet-h, 0);
+  transition: bottom .25s ease;
   max-height: 50dvh; overflow-y: auto;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   z-index: 1;
