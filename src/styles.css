@@ -60,13 +60,6 @@ header {
 }
 .price-tag .price-warn { color: var(--red); font-size: 12px; margin-left: 4px; }
 
-.header-title {
-  font-family: 'Onest', sans-serif;
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--muted);
-}
-
 .cart-btn {
   justify-self: end;
   display: inline-flex; align-items: center; gap: 7px;
@@ -109,25 +102,25 @@ main {
   flex: 1 1 auto; min-height: 180px;
 }
 
-/* FAB: добавить текущий фасад в корзину — одна понятная кнопка (верхний угол) */
-.add-fab {
-  position: absolute; right: 14px; top: 14px;
+/* «В корзину» — центральная кнопка в шапке */
+.add-cart-btn {
+  justify-self: center;
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 11px 18px;
+  padding: 8px 16px;
   background: var(--accent); color: #fff;
   border: none; border-radius: 999px;
-  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.4);
-  z-index: 5; cursor: pointer;
-  font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 600;
   transition: background .15s, transform .1s;
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
 }
-.add-fab:hover { background: var(--accent2); }
-.add-fab:active { transform: scale(0.96); }
-.add-fab .add-fab-cart { display: inline-flex; width: 18px; height: 18px; }
-.add-fab .add-fab-cart svg { width: 100%; height: 100%; }
+.add-cart-btn:hover { background: var(--accent2); }
+.add-cart-btn:active { transform: scale(0.96); }
+.add-cart-icon { display: inline-flex; width: 16px; height: 16px; }
+.add-cart-icon svg { width: 100%; height: 100%; }
 @keyframes fabPop {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.08); box-shadow: 0 6px 22px rgba(var(--accent-rgb), 0.55); }
+  40%  { transform: scale(1.06); box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.5); }
   100% { transform: scale(1); }
 }
 .add-fab--pop { animation: fabPop .35s ease; }

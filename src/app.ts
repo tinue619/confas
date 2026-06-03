@@ -38,7 +38,10 @@ export function mountApp(root: HTMLElement) {
   root.insertAdjacentHTML('beforeend', `
     <header>
       <div class="price-tag" id="price-tag">—</div>
-      <div class="header-title">Редактор</div>
+      <button class="add-cart-btn" id="add-fab">
+        <span class="add-cart-icon">${ICON.cart}</span>
+        <span>В корзину</span>
+      </button>
       <button class="cart-btn" id="cart-btn">
         <span class="cart-total" id="cart-total">—</span>
         <span class="cart-icon">${ICON.cart}</span>
@@ -47,10 +50,6 @@ export function mountApp(root: HTMLElement) {
     <main>
       <div class="canvas-section">
         <canvas id="facade-canvas"></canvas>
-        <button class="add-fab" id="add-fab">
-          <span class="add-fab-cart">${ICON.cart}</span>
-          <span class="add-fab-label">В корзину</span>
-        </button>
       </div>
       <div class="tool-area" id="tool-area"></div>
     </main>
@@ -62,7 +61,6 @@ export function mountApp(root: HTMLElement) {
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
   const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
-  const headerTitleEl = document.querySelector('.header-title') as HTMLElement;
 
   // ── Рендерер canvas ────────────────────────────────────────────────────
   const renderer = new FacadeRenderer(canvas);
@@ -74,7 +72,6 @@ export function mountApp(root: HTMLElement) {
   // tool-area, шторка едет снизу. Кнопка «Готово» закрывает её обратно.
   let editingItemId: string | null = null;
   let editOverlay: HTMLElement | null = null;
-  void headerTitleEl; // используем оверлей вместо смены заголовка
 
   const enterEditMode = (id: string) => {
     const item = store.getOrder().items.find(i => i.id === id);
