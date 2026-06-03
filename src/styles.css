@@ -94,11 +94,14 @@ header {
 /* ── Layout ── */
 main {
   flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-  /* Резерв снизу = тулбар + шторка. Тулбар сидит над шторкой, canvas над
-     тулбаром. Всё едет синхронно (один и тот же .25s ease). */
-  padding-bottom: calc(var(--tool-h, 0px) + var(--sheet-h, 0px));
+  /* Резерв снизу = max(тулбар, шторка). Тулбар прикреплён к низу абсолютно
+     и прячется под шторкой полностью когда она наезжает. */
+  padding-bottom: max(var(--sheet-h, 0px), var(--tool-h, 0px));
   transition: padding-bottom .25s ease;
   position: relative;
+  /* Фон под padding-зоной = цвет шторки/тулбара, чтобы в момент анимации
+     не проглядывал бежевый body bg в виде «колхозной полосы». */
+  background: var(--surface);
 }
 
 .canvas-section {
@@ -187,9 +190,10 @@ main {
 .edit-body {
   flex: 1 1 auto; display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
-  padding-bottom: calc(var(--tool-h, 0px) + var(--sheet-h, 0px));
+  padding-bottom: max(var(--sheet-h, 0px), var(--tool-h, 0px));
   transition: padding-bottom .25s ease;
   position: relative;
+  background: var(--surface);
 }
 .cart-row { cursor: pointer; }
 .canvas-section::before {
@@ -205,8 +209,7 @@ main {
 .tool-area {
   background: var(--surface); border-top: 1px solid var(--border);
   padding: 10px 0 8px; display: flex; flex-direction: column;
-  position: absolute; left: 0; right: 0; bottom: var(--sheet-h, 0);
-  transition: bottom .25s ease;
+  position: absolute; left: 0; right: 0; bottom: 0;
   max-height: 50dvh; overflow-y: auto;
   -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   z-index: 1;
