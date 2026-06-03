@@ -428,7 +428,7 @@ function mountHingesTool(area: HTMLElement, fs: FacadeState, model: any, refresh
 
   const sides = document.createElement('div');
   sides.className = 'side-chips';
-  const sideOptions: Array<['left' | 'top', string]> = [['left', 'Лево'], ['top', 'Верх']];
+  const sideOptions: Array<['left' | 'top', string]> = [['left', 'Верт.'], ['top', 'Гор.']];
   for (const [base, label] of sideOptions) {
     const axisActive = base === 'left' ? isVertical : !isVertical;
     const b = document.createElement('button');
