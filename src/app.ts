@@ -13,6 +13,7 @@ import { orderItemCount, orderTotal, type FacadeConfig, type OrderItem } from '.
 import { FacadeRenderer, type Hit } from './canvas-render';
 import { WheelPicker } from './wheel-picker';
 import { Carousel } from './carousel';
+import { openCheckoutSheet, setOpenSheet } from './checkout';
 
 const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
@@ -593,7 +594,7 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
   const checkout = document.createElement('button');
   checkout.className = 'btn btn-primary';
   checkout.textContent = 'Оформить';
-  checkout.onclick = () => alert('Оформление: пока заглушка');
+  checkout.onclick = () => openCheckoutSheet();
   right.append(clear, checkout);
   footer.appendChild(right);
   body.appendChild(footer);
@@ -843,6 +844,8 @@ function facadeIcon(c: FacadeConfig, uid: string): string {
 interface OpenSheetOpts { id?: string; dim?: boolean; onClose?: () => void }
 let activeSheetClose: (() => void) | null = null;
 let activeSheetId: string | null = null;
+// Регистрируем шторку для внешних модулей (checkout и т.д.).
+setOpenSheet(openSheet);
 function openSheet(title: string, render: (body: HTMLElement, close: () => void) => void, opts: OpenSheetOpts = {}) {
   // Та же шторка уже открыта — игнорируем повторный тап
   if (opts.id && activeSheetId === opts.id) return;

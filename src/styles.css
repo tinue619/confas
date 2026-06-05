@@ -688,3 +688,100 @@ main {
   letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
   margin-bottom: 6px;
 }
+
+/* ── Checkout: регистрация и форма заказа ── */
+.checkout-body {
+  padding: 12px 16px 16px;
+  gap: 12px;
+}
+.checkout-hint {
+  font-size: 12px; color: var(--muted); padding-bottom: 4px;
+}
+.checkout-field {
+  display: flex; flex-direction: column; gap: 6px;
+  font-family: 'Onest', sans-serif;
+}
+.checkout-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.checkout-input {
+  width: 100%;
+  font-family: 'Onest', sans-serif; font-size: 14px; color: var(--text);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px;
+  outline: none;
+  transition: border-color .12s, background .12s;
+}
+.checkout-input:focus {
+  border-color: rgba(var(--accent-rgb), 0.5);
+  background: var(--surface);
+}
+.checkout-textarea { resize: none; min-height: 60px; }
+.checkout-checkbox {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text); cursor: pointer;
+  padding: 4px 0;
+}
+.checkout-checkbox input { accent-color: var(--accent); width: 16px; height: 16px; }
+.checkout-error {
+  font-size: 12px; color: var(--red);
+  background: rgba(208, 69, 69, 0.08);
+  border: 1px solid rgba(208, 69, 69, 0.25);
+  border-radius: 8px; padding: 8px 10px;
+}
+.checkout-actions { display: flex; padding-top: 8px; }
+.checkout-submit { flex: 1; min-height: 46px; font-size: 14px; }
+
+.addr-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.addr-chip {
+  display: inline-flex; flex-direction: column; align-items: flex-start;
+  gap: 1px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px;
+  font-family: 'Onest', sans-serif; font-size: 12px; color: var(--text);
+  cursor: pointer; transition: border-color .12s, background .12s;
+  max-width: 100%;
+}
+.addr-chip:hover:not(:disabled) { border-color: var(--surface3); }
+.addr-chip.active {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+.addr-chip-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.addr-chip-text {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 250px;
+}
+.addr-chip--new {
+  color: var(--accent); font-weight: 600;
+  border-style: dashed;
+}
+
+.checkout-success {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 14px 8px 6px; text-align: center;
+}
+.checkout-success-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; font-weight: 700;
+  margin-bottom: 4px;
+}
+.checkout-success-title {
+  font-size: 16px; font-weight: 700; color: var(--text);
+}
+.checkout-success-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; color: var(--accent);
+}
+.checkout-success-hint {
+  font-size: 12px; color: var(--muted); padding-top: 4px;
+  max-width: 280px;
+}

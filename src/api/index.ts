@@ -7,13 +7,14 @@
 // устройство (localStorage, fetch, websockets и т.д.) скрыто.
 
 import type { CatalogEntry } from '../model';
-import type { Order, OrderItem } from '../order';
+import type { Customer, Order, OrderHeader, OrderItem, SavedAddress } from '../order';
 import { localApi } from './local';
 
 export interface Api {
   catalog: CatalogApi;
   cart:    CartApi;
   orders:  OrdersApi;
+  profile: ProfileApi;
 }
 
 export interface CatalogApi {
@@ -42,12 +43,30 @@ export interface CartApi {
   newId(): string;
 }
 
-/** Отправка заказа на бэк. Сейчас — заглушка. */
+/** Отправленные заказы. На бэке — `POST /orders`, `GET /orders`. */
 export interface OrdersApi {
-  /** Поставить заказ в очередь на отправку. Сейчас просто помечает state='pending'. */
-  submit(order: Order): Promise<{ serverId: string; total: number }>;
-  /** Получить статус заказа по серверному ID. Сейчас — отказ. */
-  getStatus(serverId: string): Promise<Order>;
+  /** Оформить корзину: создать заказ, вернуть его серверный ID. Сегодня —
+   *  кладёт в локальную историю и возвращает 'local-…'. */
+  submit(header: OrderHeader, cart: Order): Promise<Order>;
+  /** Список ранее оформленных заказов (история). */
+  list(): Order[];
+  /** Получить один заказ по ID. */
+  get(id: string): Order | null;
+  subscribe(fn: () => void): () => void;
+}
+
+/** Профиль клиента + сохранённые адреса. На бэке — `GET/PUT /me`. */
+export interface ProfileApi {
+  /** Текущий профиль. null если ещё не зарегистрирован. */
+  get(): Customer | null;
+  /** Создать профиль при первой регистрации. */
+  register(name: string, phone: string): Customer;
+  /** Обновить имя/телефон. */
+  update(patch: Partial<Pick<Customer, 'name' | 'phone'>>): void;
+  /** Сохранить адрес. Если у адреса есть id — обновляет, иначе добавляет. */
+  saveAddress(addr: SavedAddress | Omit<SavedAddress, 'id'>): SavedAddress;
+  removeAddress(id: string): void;
+  subscribe(fn: () => void): () => void;
 }
 
 /** Текущая реализация — локальная. Импортится туда, где нужно. */
