@@ -6,19 +6,11 @@
 
 import { api } from './api';
 import type { Order, OrderHeader, SavedAddress } from './order';
-
-interface OpenSheetFn {
-  (title: string, render: (body: HTMLElement, close: () => void) => void,
-   opts?: { id?: string; dim?: boolean; onClose?: () => void }): void;
-}
-
-let _openSheet: OpenSheetFn | null = null;
-
-/** Регистрируем функцию открытия шторки из app.ts (избегаем цикла). */
-export function setOpenSheet(fn: OpenSheetFn) { _openSheet = fn; }
+import { openSheet } from './ui-sheet';
+import { escapeHtml } from './ui-format';
+import { openOrderDetails } from './cabinet';
 
 export function openCheckoutSheet() {
-  if (!_openSheet) return;
   const cart = api.cart.get();
   if (cart.items.length === 0) return;
 
@@ -31,7 +23,7 @@ export function openCheckoutSheet() {
 }
 
 function openRegisterSheet() {
-  _openSheet!('Регистрация', (body, close) => {
+  openSheet('Регистрация', (body, close) => {
     body.classList.add('checkout-body');
     body.innerHTML = `
       <div class="checkout-hint">Чтобы оформить заказ — представьтесь</div>
@@ -66,7 +58,7 @@ function openRegisterSheet() {
 }
 
 function openOrderFormSheet() {
-  _openSheet!('Оформление', (body, close) => {
+  openSheet('Оформление', (body, close) => {
     const profile = api.profile.get()!;
     let pickedAddressId: string | null = profile.addresses[0]?.id ?? null;
     let customAddress = '';
@@ -88,7 +80,7 @@ function openOrderFormSheet() {
 
         <label class="checkout-field">
           <span class="checkout-label">Телефон</span>
-          <input type="tel" class="checkout-input" id="ord-phone" inputmode="tel" value="${escapeAttr(profile.phone)}">
+          <input type="tel" class="checkout-input" id="ord-phone" inputmode="tel" value="${escapeHtml(profile.phone)}">
         </label>
 
         <label class="checkout-field">
@@ -163,7 +155,7 @@ function openOrderFormSheet() {
 }
 
 function openOrderSuccess(order: Order) {
-  _openSheet!('Заказ отправлен', (body, close) => {
+  openSheet('Заказ отправлен', (body, close) => {
     body.classList.add('checkout-body');
     const itemsCount = order.items.reduce((s, i) => s + i.qty, 0);
     const total = order.items.reduce((s, i) => s + i.priceSnapshot.total * i.qty, 0);
@@ -172,19 +164,24 @@ function openOrderSuccess(order: Order) {
         <div class="checkout-success-icon">✓</div>
         <div class="checkout-success-title">${escapeHtml(order.header?.title ?? 'Заказ')}</div>
         <div class="checkout-success-meta">${itemsCount} поз. · ${total.toLocaleString('ru-KZ')} ₸</div>
-        <div class="checkout-success-hint">Заказ сохранён локально. История доступна по тапу на «Корзину».</div>
+        <div class="checkout-success-hint">Заказ принят. Все заказы — в личном кабинете.</div>
       </div>
-      <div class="checkout-actions">
-        <button class="btn btn-primary checkout-submit" id="ok-go">Готово</button>
+      <div class="checkout-actions checkout-actions--col">
+        <button class="btn btn-primary checkout-submit" id="ok-view">Открыть заказ</button>
+        <button class="btn btn-ghost checkout-submit" id="ok-go">Готово</button>
       </div>`;
     (body.querySelector('#ok-go') as HTMLButtonElement).onclick = close;
+    (body.querySelector('#ok-view') as HTMLButtonElement).onclick = () => {
+      close();
+      setTimeout(() => openOrderDetails(order), 100);
+    };
   }, { id: 'checkout-success' });
 }
 
 function renderAddressBlock(saved: SavedAddress[], pickedId: string | null): string {
   const customSelected = pickedId === null;
   const chips = saved.map(a => `
-    <button class="addr-chip ${a.id === pickedId ? 'active' : ''}" data-id="${escapeAttr(a.id)}" type="button">
+    <button class="addr-chip ${a.id === pickedId ? 'active' : ''}" data-id="${escapeHtml(a.id)}" type="button">
       ${a.label ? `<span class="addr-chip-label">${escapeHtml(a.label)}</span>` : ''}
       <span class="addr-chip-text">${escapeHtml(a.address)}</span>
     </button>`).join('');
@@ -194,7 +191,7 @@ function renderAddressBlock(saved: SavedAddress[], pickedId: string | null): str
       <button class="addr-chip addr-chip--new ${customSelected ? 'active' : ''}" id="addr-new" type="button">+ Новый</button>
     </div>
     ${customSelected ? `
-      <input type="text" class="checkout-input" id="addr-input" placeholder="Город, улица, дом, квартира" value="${escapeAttr('')}">
+      <input type="text" class="checkout-input" id="addr-input" placeholder="Город, улица, дом, квартира" value="${escapeHtml('')}">
       <label class="checkout-checkbox">
         <input type="checkbox" id="addr-save">
         <span>Сохранить адрес в профиле</span>
@@ -206,8 +203,3 @@ function isValidPhone(s: string): boolean {
   const digits = s.replace(/\D/g, '');
   return digits.length >= 9;
 }
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]!));
-}
-function escapeAttr(s: string): string { return escapeHtml(s); }

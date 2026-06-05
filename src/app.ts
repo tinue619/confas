@@ -13,12 +13,16 @@ import { orderItemCount, orderTotal, type FacadeConfig, type OrderItem } from '.
 import { FacadeRenderer, type Hit } from './canvas-render';
 import { WheelPicker } from './wheel-picker';
 import { Carousel } from './carousel';
-import { openCheckoutSheet, setOpenSheet } from './checkout';
+import { openCheckoutSheet } from './checkout';
+import { openCabinet } from './cabinet';
+import { setOpenSheet } from './ui-sheet';
+import { fmtMoney, escapeHtml, compactSpec, facadeIcon } from './ui-format';
 
 const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
   mirror: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7 4 12l4 5M16 7l4 5-4 5"/></svg>`,
+  user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>`,
 };
 
 export function mountApp(root: HTMLElement) {
@@ -43,10 +47,15 @@ export function mountApp(root: HTMLElement) {
         <span class="add-cart-icon">${ICON.cart}</span>
         <span>В корзину</span>
       </button>
-      <button class="cart-btn" id="cart-btn">
-        <span class="cart-total" id="cart-total">—</span>
-        <span class="cart-icon">${ICON.cart}</span>
-      </button>
+      <div class="header-right">
+        <button class="icon-btn" id="cabinet-btn" aria-label="Личный кабинет">
+          <span class="icon-btn-glyph">${ICON.user}</span>
+        </button>
+        <button class="cart-btn" id="cart-btn">
+          <span class="cart-total" id="cart-total">—</span>
+          <span class="cart-icon">${ICON.cart}</span>
+        </button>
+      </div>
     </header>
     <main>
       <div class="canvas-section">
@@ -62,6 +71,8 @@ export function mountApp(root: HTMLElement) {
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
   const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
+  const cabinetBtn = document.getElementById('cabinet-btn') as HTMLButtonElement;
+  cabinetBtn.onclick = () => openCabinet();
 
   // ── Рендерер canvas ────────────────────────────────────────────────────
   const renderer = new FacadeRenderer(canvas);
@@ -600,17 +611,6 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
   body.appendChild(footer);
 }
 
-/** Дополнительная инфа справа от пиктограммы: закалка + петли */
-function compactSpec(c: FacadeConfig): string {
-  const parts: string[] = [];
-  if (c.tempered) parts.push('закал.');
-  if (c.hingeMode !== 'none' && c.hingePositions.length > 0) {
-    const arrow = { left: '←', right: '→', top: '↑', bottom: '↓' }[c.hingeSide];
-    parts.push(`петли${arrow}${c.hingePositions.length}`);
-  }
-  return parts.join(' · ');
-}
-
 /** [Legacy SVG fallback] Не используется — рендерим через FacadeRenderer на canvas */
 function _facadePreviewSVG_unused(c: FacadeConfig): string {
   const FRAME = 44, GLASS_M = 4;
@@ -802,43 +802,6 @@ function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: numbe
   });
 }
 
-/** SVG-пиктограмма фасада: рама цветом профиля, стекло цветом + текстура */
-function facadeIcon(c: FacadeConfig, uid: string): string {
-  const profileHex = PROFILE_COLORS[c.profileColor]?.hex ?? '#888';
-  const glassHex = GLASS_COLORS[c.glassColor]?.hex ?? '#c4d8de';
-  const matte = c.glassType === 'matte';
-  const textured = c.glassType === 'textured';
-  const W = 20, H = 26, fw = 2.5;
-  const ix = fw, iy = fw, iw = W - 2 * fw, ih = H - 2 * fw;
-  const rgba = (hex: string, a: number) => {
-    const m = hex.replace('#', '');
-    return `rgba(${parseInt(m.slice(0,2),16)},${parseInt(m.slice(2,4),16)},${parseInt(m.slice(4,6),16)},${a})`;
-  };
-  const glassAlpha = matte ? 0.7 : 0.4;
-  let glassLayer: string;
-  if (textured) {
-    const pid = `tx-${uid}`;
-    glassLayer = `
-      <defs>
-        <pattern id="${pid}" width="2.2" height="${ih}" patternUnits="userSpaceOnUse">
-          <rect width="2.2" height="${ih}" fill="${rgba(glassHex, 0.4)}"/>
-          <rect width="1" height="${ih}" fill="${rgba(glassHex, 0.75)}"/>
-        </pattern>
-      </defs>
-      <rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="#0d0c0b"/>
-      <rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="url(#${pid})"/>`;
-  } else {
-    glassLayer = `
-      <rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="#0d0c0b"/>
-      <rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="${rgba(glassHex, glassAlpha)}"/>`;
-  }
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" class="cart-facade-icon" aria-hidden="true">
-    <rect width="${W}" height="${H}" fill="${profileHex}"/>
-    ${glassLayer}
-    <rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="0.8"/>
-  </svg>`;
-}
-
 // ─── Bottom sheet helper ──────────────────────────────────────────────────────
 
 interface OpenSheetOpts { id?: string; dim?: boolean; onClose?: () => void }
@@ -934,10 +897,3 @@ function openSheet(title: string, render: (body: HTMLElement, close: () => void)
   dragZone.addEventListener('pointercancel', onUp);
 }
 
-function fmtMoney(n: number): string {
-  return n.toLocaleString('ru-KZ') + ' ₸';
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]!));
-}
