@@ -20,15 +20,18 @@ export interface FacadeConfig {
 }
 
 export interface OrderItem {
-  /** Уникальный id строки заказа */
+  /** Локальный id строки (генерится клиентом, остаётся на всю жизнь записи) */
   id: string;
+  /** ID, выданный сервером после синхронизации. Заполняется при появлении бэка. */
+  serverId?: string;
   /** Ссылка на модель в каталоге */
   modelRef: { category: Category; modelId: string };
   /** Снимок названия модели (на случай если модель удалят/переименуют) */
   modelName: string;
   /** Снимок конфигурации пользователя */
   config: FacadeConfig;
-  /** Снимок расчёта цены в момент добавления (за 1 шт) */
+  /** Оценка цены (за 1 шт). Когда подключим сервер — он вернёт авторитетную;
+   *  сейчас рассчитывается локально и используется только для UI. */
   priceSnapshot: PriceBreakdown;
   /** Количество */
   qty: number;
@@ -36,7 +39,14 @@ export interface OrderItem {
   addedAt: string;
 }
 
+/** Состояние заказа относительно бэка. Сейчас всегда 'draft' — сервера нет. */
+export type OrderState = 'draft' | 'pending' | 'confirmed' | 'failed';
+
 export interface Order {
+  /** Локальный ID заказа-черновика. На сервере получит serverId. */
+  clientId?: string;
+  serverId?: string;
+  state?: OrderState;
   items: OrderItem[];
 }
 
