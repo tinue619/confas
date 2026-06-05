@@ -790,7 +790,11 @@ main {
   max-width: 280px;
 }
 
-/* ── Header: иконочная кнопка + правая группа ── */
+/* ── Header: иконочная кнопка + группы ── */
+.header-left {
+  justify-self: start;
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+}
 .header-right {
   justify-self: end;
   display: inline-flex; align-items: center; gap: 14px;
@@ -880,6 +884,19 @@ main {
   color: var(--accent); padding: 6px 4px;
 }
 .cab-edit-btn:active { opacity: 0.6; }
+
+.cab-new-order {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 12px; cursor: pointer;
+  font-family: 'Onest', sans-serif; font-size: 15px; font-weight: 600;
+  box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.28);
+  transition: background .15s, transform .08s;
+}
+.cab-new-order:hover { background: var(--accent2); }
+.cab-new-order:active { transform: scale(0.985); }
+.cab-new-plus { font-size: 20px; line-height: 1; font-weight: 400; }
 
 .cab-section-title {
   display: flex; align-items: center; gap: 8px;

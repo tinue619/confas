@@ -12,7 +12,6 @@ import { localApi } from './local';
 
 export interface Api {
   catalog: CatalogApi;
-  cart:    CartApi;
   orders:  OrdersApi;
   profile: ProfileApi;
 }
@@ -30,29 +29,31 @@ export interface MaterialDto {
   k: number;
 }
 
-/** Корзина-черновик. Хранится у клиента до момента «Оформить». */
-export interface CartApi {
-  get(): Order;
-  add(item: OrderItem): void;
-  update(id: string, updater: (it: OrderItem) => OrderItem): void;
-  setQty(id: string, qty: number): void;
-  remove(id: string): void;
-  clear(): void;
-  subscribe(fn: () => void): () => void;
-  /** Сгенерировать локальный ID (UUID-like). При синке с сервером заменится на serverId. */
-  newId(): string;
-}
-
-/** Отправленные заказы. На бэке — `POST /orders`, `GET /orders`. */
+/** Заказы — единая сущность с состоянием (`draft` → `confirmed`).
+ *  Черновик наполняется в конфигураторе; «Оформить» переводит его в `confirmed`.
+ *  На бэке — `GET/POST /orders`, `PATCH /orders/:id`. */
 export interface OrdersApi {
-  /** Оформить корзину: создать заказ, вернуть его серверный ID. Сегодня —
-   *  кладёт в локальную историю и возвращает 'local-…'. */
-  submit(header: OrderHeader, cart: Order): Promise<Order>;
-  /** Список ранее оформленных заказов (история). */
+  /** Все заказы (черновики + отправленные), свежие сверху. */
   list(): Order[];
-  /** Получить один заказ по ID. */
+  /** Получить один заказ по clientId/serverId. */
   get(id: string): Order | null;
+  /** Создать новый черновик (пустой) и вернуть его. */
+  createDraft(): Order;
+  /** Добавить позицию в заказ-черновик. */
+  addItem(orderId: string, item: OrderItem): void;
+  /** Заменить позицию (для редактирования). */
+  updateItem(orderId: string, itemId: string, updater: (it: OrderItem) => OrderItem): void;
+  /** Изменить количество позиции. */
+  setQty(orderId: string, itemId: string, qty: number): void;
+  /** Удалить позицию. */
+  removeItem(orderId: string, itemId: string): void;
+  /** Удалить заказ целиком (например, пустой черновик при выходе). */
+  deleteOrder(orderId: string): void;
+  /** Оформить черновик: проставить шапку, перевести в `confirmed`. */
+  submit(orderId: string, header: OrderHeader): Promise<Order>;
   subscribe(fn: () => void): () => void;
+  /** Сгенерировать локальный ID (UUID-like). При синке заменится на serverId. */
+  newId(): string;
 }
 
 /** Профиль клиента + сохранённые адреса. На бэке — `GET/PUT /me`. */

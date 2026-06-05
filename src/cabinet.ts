@@ -1,12 +1,11 @@
-// Личный кабинет — раздел верхнего уровня (полноэкранный оверлей, выше
-// редактора в иерархии), а не контекстная шторка.
+// Личный кабинет = «дом» приложения (полноэкранный раздел, открыт по
+// умолчанию поверх конфигуратора). Внутри — стек страниц:
+//   корень (профиль + «+ Новый заказ» + заказы) → детали заказа
+//                                                → правка профиля
 //
-// Внутри — простой стек страниц с навигацией «назад»:
-//   корень (профиль + заказы) → детали заказа
-//                             → правка профиля
-//
-// Всё ходит через api.profile / api.orders — при появлении бэка меняем только
-// реализацию api, экраны кабинета не трогаем.
+// Если профиль ещё не создан — корень показывает регистрацию (гейт при
+// первом запуске). Конфигуратор открывается из кабинета: «+ Новый заказ»
+// или тап по черновику. Всё ходит через api.profile / api.orders.
 
 import { api } from './api';
 import type { Order, OrderState } from './order';
@@ -20,35 +19,53 @@ const STATE_LABEL: Record<OrderState, string> = {
 };
 
 const ICON_BACK  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>`;
-const ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 
 interface Page {
   title: string;
   build: (body: HTMLElement) => void;
-  /** action-кнопка справа в шапке (например «Сохранить») */
   action?: { label: string; onClick: () => void };
 }
+
+interface CabinetHandlers {
+  /** «+ Новый заказ» — начать сборку нового черновика в конфигураторе. */
+  onNewOrder: () => void;
+  /** Тап по черновику — продолжить его в конфигураторе. */
+  onOpenDraft: (id: string) => void;
+}
+
+let handlers: CabinetHandlers = { onNewOrder: () => {}, onOpenDraft: () => {} };
+export function setCabinetHandlers(h: CabinetHandlers) { handlers = h; }
 
 let overlay: HTMLElement | null = null;
 let stack: Page[] = [];
 let unsubs: Array<() => void> = [];
 
-export function openCabinet() {
-  ensureOverlay();
+export function openCabinet(opts: { animate?: boolean } = {}) {
+  const animate = opts.animate ?? true;
+  ensureOverlay(animate);
   stack = [rootPage()];
   renderTop();
 }
 
+export function closeCabinet() {
+  if (!overlay) return;
+  unsubs.forEach(fn => fn()); unsubs = [];
+  const o = overlay;
+  overlay = null;
+  stack = [];
+  o.classList.remove('screen-overlay--open');
+  setTimeout(() => o.remove(), 300);
+}
+
 /** Открыть кабинет сразу на деталях заказа (из экрана «Заказ принят»). */
 export function openOrderDetails(o: Order) {
-  ensureOverlay();
-  // База стека — список, чтобы «назад» вёл в историю.
+  ensureOverlay(true);
   if (stack.length === 0) stack = [rootPage()];
   stack.push(orderDetailsPage(o));
   renderTop();
 }
 
-function ensureOverlay() {
+function ensureOverlay(animate: boolean) {
   if (overlay) return;
   overlay = document.createElement('div');
   overlay.className = 'screen-overlay';
@@ -63,34 +80,34 @@ function ensureOverlay() {
 
   (overlay.querySelector('#screen-back') as HTMLElement).onclick = () => {
     if (stack.length > 1) { stack.pop(); renderTop(); }
-    else closeCabinet();
   };
 
-  requestAnimationFrame(() => overlay!.classList.add('screen-overlay--open'));
+  if (animate) {
+    requestAnimationFrame(() => overlay!.classList.add('screen-overlay--open'));
+  } else {
+    overlay.style.transition = 'none';
+    overlay.classList.add('screen-overlay--open');
+    void overlay.offsetHeight;
+    overlay.style.transition = '';
+  }
 
   // Живое обновление, пока кабинет открыт.
   unsubs.push(api.orders.subscribe(renderTop));
   unsubs.push(api.profile.subscribe(renderTop));
 }
 
-function closeCabinet() {
-  if (!overlay) return;
-  unsubs.forEach(fn => fn()); unsubs = [];
-  const o = overlay;
-  overlay = null;
-  stack = [];
-  o.classList.remove('screen-overlay--open');
-  setTimeout(() => o.remove(), 300);
-}
-
 function renderTop() {
   if (!overlay) return;
   const p = stack[stack.length - 1];
-  if (!p) { closeCabinet(); return; }
+  if (!p) return;
 
   (overlay.querySelector('#screen-title') as HTMLElement).textContent = p.title;
-  (overlay.querySelector('#screen-back') as HTMLElement).innerHTML =
-    stack.length > 1 ? ICON_BACK : ICON_CLOSE;
+
+  // На корне (дом) кнопки «назад» нет — выйти можно только в конфигуратор.
+  const back = overlay.querySelector('#screen-back') as HTMLElement;
+  const isRoot = stack.length <= 1;
+  back.innerHTML = isRoot ? '' : ICON_BACK;
+  back.style.visibility = isRoot ? 'hidden' : 'visible';
 
   const actionSlot = overlay.querySelector('#screen-action') as HTMLElement;
   actionSlot.innerHTML = '';
@@ -108,28 +125,20 @@ function renderTop() {
   p.build(body);
 }
 
-// ─── Страницы ──────────────────────────────────────────────────────────────
+// ─── Корень: регистрация ИЛИ профиль + заказы ────────────────────────────────
 
 function rootPage(): Page {
   return {
     title: 'Личный кабинет',
     build(body) {
+      const profile = api.profile.get();
+      if (!profile) { buildRegistration(body); return; }
+
       const wrap = document.createElement('div');
       wrap.className = 'cabinet-body';
       body.appendChild(wrap);
 
-      const profile = api.profile.get();
-      const orders  = api.orders.list();
-
-      if (!profile) {
-        wrap.innerHTML = `
-          <div class="cabinet-empty">
-            <div class="cabinet-empty-title">Вы ещё не зарегистрированы</div>
-            <div class="cabinet-empty-hint">Оформите первый заказ — и здесь появится профиль и история.</div>
-          </div>`;
-        return;
-      }
-
+      const orders = api.orders.list();
       const initials = profile.name.trim().charAt(0).toUpperCase() || '?';
       wrap.innerHTML = `
         <div class="cab-profile">
@@ -141,12 +150,20 @@ function rootPage(): Page {
           <button class="cab-edit-btn" id="cab-edit" type="button">Изменить</button>
         </div>
 
+        <button class="cab-new-order" id="cab-new" type="button">
+          <span class="cab-new-plus">＋</span> Новый заказ
+        </button>
+
         <div class="cab-section-title">Мои заказы ${orders.length ? `<span class="cab-count">${orders.length}</span>` : ''}</div>
         <div class="cab-orders" id="cab-orders"></div>`;
 
       (wrap.querySelector('#cab-edit') as HTMLButtonElement).onclick = () => {
         stack.push(profileEditPage());
         renderTop();
+      };
+      (wrap.querySelector('#cab-new') as HTMLButtonElement).onclick = () => {
+        closeCabinet();
+        handlers.onNewOrder();
       };
 
       const list = wrap.querySelector('#cab-orders') as HTMLElement;
@@ -159,6 +176,37 @@ function rootPage(): Page {
   };
 }
 
+function buildRegistration(body: HTMLElement) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cabinet-body checkout-body';
+  body.appendChild(wrap);
+  wrap.innerHTML = `
+    <div class="checkout-hint">Добро пожаловать! Представьтесь, чтобы оформлять заказы и видеть их историю.</div>
+    <label class="checkout-field">
+      <span class="checkout-label">Имя</span>
+      <input type="text" class="checkout-input" id="reg-name" autocomplete="name" placeholder="Как к вам обращаться">
+    </label>
+    <label class="checkout-field">
+      <span class="checkout-label">Телефон</span>
+      <input type="tel" class="checkout-input" id="reg-phone" autocomplete="tel" inputmode="tel" placeholder="+7 …">
+    </label>
+    <div class="checkout-error" id="reg-err" hidden></div>
+    <div class="checkout-actions">
+      <button class="btn btn-primary checkout-submit" id="reg-go">Продолжить</button>
+    </div>`;
+  const nameEl  = wrap.querySelector('#reg-name')  as HTMLInputElement;
+  const phoneEl = wrap.querySelector('#reg-phone') as HTMLInputElement;
+  const errEl   = wrap.querySelector('#reg-err')   as HTMLElement;
+  setTimeout(() => nameEl.focus(), 150);
+  (wrap.querySelector('#reg-go') as HTMLButtonElement).onclick = () => {
+    const name = nameEl.value.trim();
+    const phone = phoneEl.value.trim();
+    if (!name)  { errEl.hidden = false; errEl.textContent = 'Укажите имя'; nameEl.focus(); return; }
+    if (phone.replace(/\D/g, '').length < 9) { errEl.hidden = false; errEl.textContent = 'Укажите телефон'; phoneEl.focus(); return; }
+    api.profile.register(name, phone); // подписка перерисует корень → хаб
+  };
+}
+
 function orderRow(o: Order): HTMLElement {
   const row = document.createElement('button');
   row.className = 'cab-order';
@@ -166,18 +214,29 @@ function orderRow(o: Order): HTMLElement {
   const count = o.items.reduce((s, i) => s + i.qty, 0);
   const total = o.items.reduce((s, i) => s + i.priceSnapshot.total * i.qty, 0);
   const state = o.state ?? 'confirmed';
+  const isDraft = state === 'draft';
+  const title = o.header?.title ?? (isDraft ? 'Черновик' : 'Без названия');
+  const dateOrHint = isDraft ? 'не отправлен' : fmtDate(o.submittedAt);
   row.innerHTML = `
     <div class="cab-order-top">
-      <span class="cab-order-title">${escapeHtml(o.header?.title ?? 'Без названия')}</span>
+      <span class="cab-order-title">${escapeHtml(title)}</span>
       <span class="cab-badge cab-badge--${state}">${STATE_LABEL[state]}</span>
     </div>
     <div class="cab-order-meta">
-      <span>${fmtDate(o.submittedAt)}</span>
+      <span>${dateOrHint}</span>
       <span class="cab-dot">·</span>
       <span>${count} поз.</span>
       <span class="cab-order-total">${fmtMoney(total)}</span>
     </div>`;
-  row.onclick = () => { stack.push(orderDetailsPage(o)); renderTop(); };
+  row.onclick = () => {
+    if (isDraft) {
+      closeCabinet();
+      handlers.onOpenDraft(o.clientId!);
+    } else {
+      stack.push(orderDetailsPage(o));
+      renderTop();
+    }
+  };
   return row;
 }
 
@@ -233,8 +292,6 @@ function orderDetailsPage(o: Order): Page {
 }
 
 function profileEditPage(): Page {
-  // Локальный черновик имени/телефона — чтобы ввод не сбрасывался при
-  // перерисовке (добавление/удаление адреса триггерит подписку).
   const profile0 = api.profile.get();
   let draftName  = profile0?.name  ?? '';
   let draftPhone = profile0?.phone ?? '';
@@ -282,14 +339,14 @@ function profileEditPage(): Page {
       phoneEl.oninput = () => { draftPhone = phoneEl.value; };
 
       wrap.querySelectorAll<HTMLButtonElement>('.cab-addr-del').forEach(btn => {
-        btn.onclick = () => { api.profile.removeAddress(btn.dataset.id!); /* подписка перерисует */ };
+        btn.onclick = () => { api.profile.removeAddress(btn.dataset.id!); };
       });
 
       const addInput = wrap.querySelector('#pe-addr') as HTMLInputElement;
       (wrap.querySelector('#pe-addr-add') as HTMLButtonElement).onclick = () => {
         const v = addInput.value.trim();
         if (!v) return;
-        api.profile.saveAddress({ address: v }); // подписка перерисует
+        api.profile.saveAddress({ address: v });
       };
     },
     action: {

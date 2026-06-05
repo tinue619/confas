@@ -5,41 +5,40 @@
 import type { CatalogEntry } from '../model';
 import { CATALOG } from '../models-loader';
 import type { Customer, Order, OrderHeader, OrderItem, SavedAddress } from '../order';
-import { emptyOrder } from '../order';
-import type { Api, CatalogApi, CartApi, MaterialDto, OrdersApi, ProfileApi } from './index';
+import type { Api, CatalogApi, MaterialDto, OrdersApi, ProfileApi } from './index';
 import materialsRaw from '../../config/materials.json';
 
-const CART_KEY    = 'facade-order-v1';
+const CART_KEY    = 'facade-order-v1';   // legacy: одиночная корзина (мигрируем)
 const PROFILE_KEY = 'facade-profile-v1';
 const ORDERS_KEY  = 'facade-orders-v1';
 
-const cartListeners    = new Set<() => void>();
 const profileListeners = new Set<() => void>();
 const ordersListeners  = new Set<() => void>();
 
-let order: Order = loadOrder();
 let profile: Customer | null = loadProfile();
-let orderHistory: Order[] = loadOrders();
+let orders: Order[] = loadOrders();
+migrateLegacyCart();
 
 function newClientId(prefix: string) {
   return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-function loadOrder(): Order {
+/** Старая одиночная корзина (`facade-order-v1`) → черновик в едином списке. */
+function migrateLegacyCart() {
   try {
     const raw = localStorage.getItem(CART_KEY);
-    if (!raw) return emptyOrder();
+    if (!raw) return;
     const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.items)) return emptyOrder();
-    return parsed as Order;
-  } catch {
-    return emptyOrder();
-  }
-}
-
-function persistCart() {
-  localStorage.setItem(CART_KEY, JSON.stringify(order));
-  cartListeners.forEach(fn => fn());
+    if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+      orders.unshift({
+        clientId: newClientId('o'),
+        state: 'draft',
+        items: parsed.items,
+      });
+      persistOrders();
+    }
+    localStorage.removeItem(CART_KEY);
+  } catch { /* ignore */ }
 }
 
 function loadProfile(): Customer | null {
@@ -70,8 +69,12 @@ function loadOrders(): Order[] {
 }
 
 function persistOrders() {
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orderHistory));
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
   ordersListeners.forEach(fn => fn());
+}
+
+function findOrder(id: string): Order | undefined {
+  return orders.find(o => o.clientId === id || o.serverId === id);
 }
 
 const catalog: CatalogApi = {
@@ -83,68 +86,73 @@ const catalog: CatalogApi = {
   },
 };
 
-const cart: CartApi = {
-  get: () => order,
-  add(item: OrderItem) {
-    order.items.push(item);
-    persistCart();
-  },
-  update(id: string, updater: (it: OrderItem) => OrderItem) {
-    const idx = order.items.findIndex(i => i.id === id);
-    if (idx < 0) return;
-    order.items[idx] = updater(order.items[idx]);
-    persistCart();
-  },
-  setQty(id: string, qty: number) {
-    const it = order.items.find(i => i.id === id);
-    if (!it) return;
-    it.qty = Math.max(1, Math.round(qty));
-    persistCart();
-  },
-  remove(id: string) {
-    order.items = order.items.filter(i => i.id !== id);
-    persistCart();
-  },
-  clear() {
-    order = emptyOrder();
-    persistCart();
-  },
-  subscribe(fn: () => void): () => void {
-    cartListeners.add(fn);
-    return () => { cartListeners.delete(fn); };
-  },
-  newId(): string {
-    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  },
-};
-
-const orders: OrdersApi = {
-  async submit(header: OrderHeader, draft: Order): Promise<Order> {
-    const submitted: Order = {
-      ...draft,
-      clientId: draft.clientId ?? newClientId('o'),
-      serverId: newClientId('local'),
-      state: 'confirmed',           // сервера нет — сразу confirmed
-      header,
-      items: draft.items.map(it => ({ ...it, config: { ...it.config, hingePositions: [...it.config.hingePositions] } })),
-      submittedAt: new Date().toISOString(),
-    };
-    orderHistory.unshift(submitted);
-    persistOrders();
-    // Корзина-черновик очищается
-    order = emptyOrder();
-    persistCart();
-    return submitted;
-  },
+const ordersApi: OrdersApi = {
   list(): Order[] {
-    return orderHistory;
+    return orders;
   },
   get(id: string): Order | null {
-    return orderHistory.find(o => o.serverId === id || o.clientId === id) ?? null;
+    return findOrder(id) ?? null;
+  },
+  createDraft(): Order {
+    const draft: Order = {
+      clientId: newClientId('o'),
+      state: 'draft',
+      items: [],
+    };
+    orders.unshift(draft);
+    persistOrders();
+    return draft;
+  },
+  addItem(orderId: string, item: OrderItem) {
+    const o = findOrder(orderId);
+    if (!o) return;
+    o.items.push(item);
+    persistOrders();
+  },
+  updateItem(orderId: string, itemId: string, updater: (it: OrderItem) => OrderItem) {
+    const o = findOrder(orderId);
+    if (!o) return;
+    const idx = o.items.findIndex(i => i.id === itemId);
+    if (idx < 0) return;
+    o.items[idx] = updater(o.items[idx]);
+    persistOrders();
+  },
+  setQty(orderId: string, itemId: string, qty: number) {
+    const o = findOrder(orderId);
+    if (!o) return;
+    const it = o.items.find(i => i.id === itemId);
+    if (!it) return;
+    it.qty = Math.max(1, Math.round(qty));
+    persistOrders();
+  },
+  removeItem(orderId: string, itemId: string) {
+    const o = findOrder(orderId);
+    if (!o) return;
+    o.items = o.items.filter(i => i.id !== itemId);
+    persistOrders();
+  },
+  deleteOrder(orderId: string) {
+    orders = orders.filter(o => o.clientId !== orderId && o.serverId !== orderId);
+    persistOrders();
+  },
+  async submit(orderId: string, header: OrderHeader): Promise<Order> {
+    const o = findOrder(orderId);
+    if (!o) throw new Error('Заказ не найден');
+    o.serverId = o.serverId ?? newClientId('local');  // сервера нет
+    o.state = 'confirmed';
+    o.header = header;
+    o.submittedAt = new Date().toISOString();
+    // Поднимаем оформленный заказ наверх списка.
+    orders = [o, ...orders.filter(x => x !== o)];
+    persistOrders();
+    return o;
   },
   subscribe(fn: () => void): () => void {
     ordersListeners.add(fn);
     return () => { ordersListeners.delete(fn); };
+  },
+  newId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   },
 };
 
@@ -189,4 +197,4 @@ const profileApi: ProfileApi = {
   },
 };
 
-export const localApi: Api = { catalog, cart, orders, profile: profileApi };
+export const localApi: Api = { catalog, orders: ordersApi, profile: profileApi };

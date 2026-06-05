@@ -1,63 +1,30 @@
-// Оформление заказа: профиль → форма → submit → история.
+// Оформление активного черновика: форма (название, адрес, телефон,
+// комментарий) → submit → экран успеха.
 //
-// При первом оформлении показываем регистрацию (имя + телефон), потом
-// форму заказа: заголовок, адрес доставки (из сохранённых или новый, с
-// опцией «сохранить»), телефон (дефолт из профиля), комментарий.
+// Профиль к этому моменту уже есть (регистрация — гейт в «доме»). Заказ —
+// это активный черновик из order-store; submit переводит его в `confirmed`.
+// После оформления зовём onSubmitted, чтобы хост (конфигуратор) закрылся и
+// вернул нас в кабинет (опционально — сразу на детали заказа).
 
 import { api } from './api';
 import type { Order, OrderHeader, SavedAddress } from './order';
 import { openSheet } from './ui-sheet';
 import { escapeHtml } from './ui-format';
-import { openOrderDetails } from './cabinet';
+import * as store from './order-store';
 
-export function openCheckoutSheet() {
-  const cart = api.cart.get();
-  if (cart.items.length === 0) return;
-
-  const profile = api.profile.get();
-  if (!profile) {
-    openRegisterSheet();
-    return;
-  }
-  openOrderFormSheet();
+export interface CheckoutCallbacks {
+  /** Заказ оформлен. openDetails — открыть ли сразу карточку заказа. */
+  onSubmitted?: (order: Order, openDetails: boolean) => void;
 }
 
-function openRegisterSheet() {
-  openSheet('Регистрация', (body, close) => {
-    body.classList.add('checkout-body');
-    body.innerHTML = `
-      <div class="checkout-hint">Чтобы оформить заказ — представьтесь</div>
-      <label class="checkout-field">
-        <span class="checkout-label">Имя</span>
-        <input type="text" class="checkout-input" id="reg-name" autocomplete="name" placeholder="Как к вам обращаться">
-      </label>
-      <label class="checkout-field">
-        <span class="checkout-label">Телефон</span>
-        <input type="tel" class="checkout-input" id="reg-phone" autocomplete="tel" inputmode="tel" placeholder="+7 …">
-      </label>
-      <div class="checkout-error" id="reg-err" hidden></div>
-      <div class="checkout-actions">
-        <button class="btn btn-primary checkout-submit" id="reg-go">Продолжить</button>
-      </div>`;
-    const nameEl  = body.querySelector('#reg-name')  as HTMLInputElement;
-    const phoneEl = body.querySelector('#reg-phone') as HTMLInputElement;
-    const errEl   = body.querySelector('#reg-err')   as HTMLElement;
-    const goBtn   = body.querySelector('#reg-go')    as HTMLButtonElement;
-    setTimeout(() => nameEl.focus(), 100);
-    goBtn.onclick = () => {
-      const name = nameEl.value.trim();
-      const phone = phoneEl.value.trim();
-      if (!name)  { errEl.hidden = false; errEl.textContent = 'Укажите имя'; nameEl.focus(); return; }
-      if (!isValidPhone(phone)) { errEl.hidden = false; errEl.textContent = 'Укажите телефон'; phoneEl.focus(); return; }
-      api.profile.register(name, phone);
-      close();
-      // После регистрации сразу — форма заказа.
-      setTimeout(() => openOrderFormSheet(), 100);
-    };
-  }, { id: 'checkout-reg' });
+export function openCheckoutSheet(cb: CheckoutCallbacks = {}) {
+  const draft = store.getOrder();
+  if (draft.items.length === 0) return;
+  if (!api.profile.get()) return; // в новой модели сюда не попасть без профиля
+  openOrderFormSheet(cb);
 }
 
-function openOrderFormSheet() {
+function openOrderFormSheet(cb: CheckoutCallbacks) {
   openSheet('Оформление', (body, close) => {
     const profile = api.profile.get()!;
     let pickedAddressId: string | null = profile.addresses[0]?.id ?? null;
@@ -144,17 +111,16 @@ function openOrderFormSheet() {
         comment: comment || undefined,
       };
 
-      const cart = api.cart.get();
-      const result = await api.orders.submit(header, cart);
+      const result = await store.submitActive(header);
       close();
-      setTimeout(() => openOrderSuccess(result), 100);
+      setTimeout(() => openOrderSuccess(result, cb), 100);
     };
 
     render();
   }, { id: 'checkout-form' });
 }
 
-function openOrderSuccess(order: Order) {
+function openOrderSuccess(order: Order, cb: CheckoutCallbacks) {
   openSheet('Заказ отправлен', (body, close) => {
     body.classList.add('checkout-body');
     const itemsCount = order.items.reduce((s, i) => s + i.qty, 0);
@@ -170,10 +136,13 @@ function openOrderSuccess(order: Order) {
         <button class="btn btn-primary checkout-submit" id="ok-view">Открыть заказ</button>
         <button class="btn btn-ghost checkout-submit" id="ok-go">Готово</button>
       </div>`;
-    (body.querySelector('#ok-go') as HTMLButtonElement).onclick = close;
+    (body.querySelector('#ok-go') as HTMLButtonElement).onclick = () => {
+      close();
+      cb.onSubmitted?.(order, false);
+    };
     (body.querySelector('#ok-view') as HTMLButtonElement).onclick = () => {
       close();
-      setTimeout(() => openOrderDetails(order), 100);
+      cb.onSubmitted?.(order, true);
     };
   }, { id: 'checkout-success' });
 }

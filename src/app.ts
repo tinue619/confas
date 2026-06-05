@@ -14,7 +14,7 @@ import { FacadeRenderer, type Hit } from './canvas-render';
 import { WheelPicker } from './wheel-picker';
 import { Carousel } from './carousel';
 import { openCheckoutSheet } from './checkout';
-import { openCabinet } from './cabinet';
+import { openCabinet, closeCabinet, setCabinetHandlers, openOrderDetails } from './cabinet';
 import { setOpenSheet } from './ui-sheet';
 import { fmtMoney, escapeHtml, compactSpec, facadeIcon } from './ui-format';
 
@@ -23,6 +23,7 @@ const ICON = {
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v7M14 11v7"/></svg>`,
   mirror: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7 4 12l4 5M16 7l4 5-4 5"/></svg>`,
   user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>`,
+  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>`,
 };
 
 export function mountApp(root: HTMLElement) {
@@ -42,20 +43,20 @@ export function mountApp(root: HTMLElement) {
   // ── DOM скелет ─────────────────────────────────────────────────────────
   root.insertAdjacentHTML('beforeend', `
     <header>
-      <div class="price-tag" id="price-tag">—</div>
+      <div class="header-left">
+        <button class="icon-btn" id="home-btn" aria-label="К заказам">
+          <span class="icon-btn-glyph">${ICON.back}</span>
+        </button>
+        <div class="price-tag" id="price-tag">—</div>
+      </div>
       <button class="add-cart-btn" id="add-fab">
         <span class="add-cart-icon">${ICON.cart}</span>
-        <span>В корзину</span>
+        <span>В заказ</span>
       </button>
-      <div class="header-right">
-        <button class="icon-btn" id="cabinet-btn" aria-label="Личный кабинет">
-          <span class="icon-btn-glyph">${ICON.user}</span>
-        </button>
-        <button class="cart-btn" id="cart-btn">
-          <span class="cart-total" id="cart-total">—</span>
-          <span class="cart-icon">${ICON.cart}</span>
-        </button>
-      </div>
+      <button class="cart-btn" id="cart-btn">
+        <span class="cart-total" id="cart-total">—</span>
+        <span class="cart-icon">${ICON.cart}</span>
+      </button>
     </header>
     <main>
       <div class="canvas-section">
@@ -71,8 +72,7 @@ export function mountApp(root: HTMLElement) {
   const cartBtn  = document.getElementById('cart-btn') as HTMLButtonElement;
   const cartTotal = document.getElementById('cart-total') as HTMLElement;
   const addFab  = document.getElementById('add-fab') as HTMLButtonElement;
-  const cabinetBtn = document.getElementById('cabinet-btn') as HTMLButtonElement;
-  cabinetBtn.onclick = () => openCabinet();
+  const homeBtn = document.getElementById('home-btn') as HTMLButtonElement;
 
   // ── Рендерер canvas ────────────────────────────────────────────────────
   const renderer = new FacadeRenderer(canvas);
@@ -208,11 +208,49 @@ export function mountApp(root: HTMLElement) {
     mountHingesTool(toolArea, fs, model, refresh);
   };
 
-  // ── Корзина ────────────────────────────────────────────────────────────
-  const openCart = () => openCartSheet(fs, model, refresh, enterEditMode);
+  // ── Навигация: дом (кабинет) ↔ конфигуратор ──────────────────────────────
+  // Конфигуратор всегда наполняет активный черновик. Возврат домой выкидывает
+  // пустой черновик. «Оформить» → submit → возврат домой (+ опц. детали).
+  const exitToCabinet = () => {
+    store.discardIfEmpty();
+    openCabinet();
+  };
+  homeBtn.onclick = exitToCabinet;
+
+  const startCheckout = () => {
+    openCheckoutSheet({
+      onSubmitted: (order, openDetails) => {
+        openCabinet();
+        if (openDetails) openOrderDetails(order);
+      },
+    });
+  };
+
+  // Сброс «болванки» на чертеже к дефолту при входе в новый/другой заказ.
+  const resetScratch = () => {
+    const d = new FacadeState();
+    d.width = 600; d.height = 716;
+    fs.width = d.width; fs.height = d.height;
+    fs.profileColor = d.profileColor;
+    fs.glassColor = d.glassColor;
+    fs.glassType = d.glassType;
+    fs.tempered = d.tempered;
+    fs.hingeMode = d.hingeMode;
+    fs.hingeSide = d.hingeSide;
+    fs.hingePositions = [...d.hingePositions];
+  };
+  const enterConfigurator = () => { resetScratch(); renderTool(); refresh(); updateCart(); };
+
+  setCabinetHandlers({
+    onNewOrder:  () => { store.beginNewDraft();  enterConfigurator(); },
+    onOpenDraft: (id) => { store.setActive(id);  enterConfigurator(); },
+  });
+
+  // ── Состав заказа (бывш. корзина) ────────────────────────────────────────
+  const openCart = () => openCartSheet(fs, model, refresh, enterEditMode, startCheckout);
   cartBtn.onclick = openCart;
 
-  // Добавление текущего фасада в корзину (идентичные конфиги мёрджатся).
+  // Добавление текущего фасада в заказ (идентичные конфиги мёрджатся).
   addFab.onclick = () => {
     addCurrentToCart(fs, model, 1);
     addFab.classList.remove('add-fab--pop');
@@ -227,6 +265,9 @@ export function mountApp(root: HTMLElement) {
   // Первая отрисовка после layout
   requestAnimationFrame(() => refresh());
   window.addEventListener('resize', refresh);
+  // Дом открыт по умолчанию (без анимации на старте). Если профиля нет —
+  // покажет регистрацию.
+  openCabinet({ animate: false });
 }
 
 // ─── Tap по canvas: петля → редактировать; пустое место по стороне → добавить ─
@@ -531,23 +572,23 @@ function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
   });
 }
 
-function openCartSheet(fs: FacadeState, model: any, refresh: () => void, onEdit: (id: string) => void) {
+function openCartSheet(fs: FacadeState, model: any, refresh: () => void, onEdit: (id: string) => void, onCheckout: () => void) {
   void fs; void refresh;
-  openSheet('Корзина', (body, close) => {
+  openSheet('Состав заказа', (body, close) => {
     const renderInside = () => {
       body.innerHTML = '';
-      fillCart(body, () => renderInside(), close, model, (id) => { onEdit(id); close(); });
+      fillCart(body, () => renderInside(), close, model, (id) => { onEdit(id); close(); }, onCheckout);
     };
     renderInside();
   }, { id: 'cart' });
 }
 
-function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, model: any, onEdit: (id: string) => void) {
+function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, model: any, onEdit: (id: string) => void, onCheckout: () => void) {
   const order = store.getOrder();
   if (order.items.length === 0) {
     const e = document.createElement('div');
     e.className = 'cart-empty';
-    e.innerHTML = `<div class="cart-empty-icon">${ICON.cart}</div>В корзине пусто`;
+    e.innerHTML = `<div class="cart-empty-icon">${ICON.cart}</div>Заказ пуст. Добавьте фасады кнопкой «В заказ».`;
     body.appendChild(e);
     return;
   }
@@ -605,7 +646,7 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
   const checkout = document.createElement('button');
   checkout.className = 'btn btn-primary';
   checkout.textContent = 'Оформить';
-  checkout.onclick = () => openCheckoutSheet();
+  checkout.onclick = () => onCheckout();
   right.append(clear, checkout);
   footer.appendChild(right);
   body.appendChild(footer);
