@@ -7,7 +7,7 @@
 // вернул нас в кабинет (опционально — сразу на детали заказа).
 
 import { api } from './api';
-import type { Order, OrderHeader, SavedAddress } from './order';
+import type { Order, OrderHeader } from './order';
 import { openSheet } from './ui-sheet';
 import { escapeHtml } from './ui-format';
 import * as store from './order-store';
@@ -27,87 +27,45 @@ export function openCheckoutSheet(cb: CheckoutCallbacks = {}) {
 function openOrderFormSheet(cb: CheckoutCallbacks) {
   openSheet('Оформление', (body, close) => {
     const profile = api.profile.get()!;
-    let pickedAddressId: string | null = profile.addresses[0]?.id ?? null;
-    let customAddress = '';
-    let saveAddr = false;
-
     body.classList.add('checkout-body');
+    body.innerHTML = `
+      <label class="checkout-field">
+        <span class="checkout-label">Название заказа</span>
+        <input type="text" class="checkout-input" id="ord-title" placeholder="Например: «Кухня Иванов»">
+      </label>
 
-    const render = () => {
-      body.innerHTML = `
-        <label class="checkout-field">
-          <span class="checkout-label">Название заказа</span>
-          <input type="text" class="checkout-input" id="ord-title" placeholder="Например: «Кухня Иванов»">
-        </label>
+      <label class="checkout-field">
+        <span class="checkout-label">Телефон</span>
+        <input type="tel" class="checkout-input" id="ord-phone" inputmode="tel" value="${escapeHtml(profile.phone)}">
+      </label>
 
-        <div class="checkout-field">
-          <span class="checkout-label">Адрес доставки</span>
-          ${renderAddressBlock(profile.addresses, pickedAddressId)}
-        </div>
+      <label class="checkout-field">
+        <span class="checkout-label">Комментарий</span>
+        <textarea class="checkout-input checkout-textarea" id="ord-comment" rows="3" placeholder="Пожелания, сроки, особенности"></textarea>
+      </label>
 
-        <label class="checkout-field">
-          <span class="checkout-label">Телефон</span>
-          <input type="tel" class="checkout-input" id="ord-phone" inputmode="tel" value="${escapeHtml(profile.phone)}">
-        </label>
+      <div class="checkout-error" id="ord-err" hidden></div>
 
-        <label class="checkout-field">
-          <span class="checkout-label">Комментарий</span>
-          <textarea class="checkout-input checkout-textarea" id="ord-comment" rows="3" placeholder="Пожелания, сроки, особенности"></textarea>
-        </label>
+      <div class="checkout-actions">
+        <button class="btn btn-primary checkout-submit" id="ord-go">Отправить заказ</button>
+      </div>`;
 
-        <div class="checkout-error" id="ord-err" hidden></div>
+    (body.querySelector('#ord-go') as HTMLButtonElement).onclick = async () => {
+      const title   = (body.querySelector('#ord-title')   as HTMLInputElement).value.trim();
+      const phone   = (body.querySelector('#ord-phone')   as HTMLInputElement).value.trim();
+      const comment = (body.querySelector('#ord-comment') as HTMLTextAreaElement).value.trim();
+      const err     = body.querySelector('#ord-err') as HTMLElement;
 
-        <div class="checkout-actions">
-          <button class="btn btn-primary checkout-submit" id="ord-go">Отправить заказ</button>
-        </div>`;
-
-      // Привязка обработчиков для выбора сохранённого адреса
-      body.querySelectorAll<HTMLElement>('.addr-chip').forEach(el => {
-        el.onclick = () => {
-          pickedAddressId = el.dataset.id || null;
-          customAddress = '';
-          render();
-        };
-      });
-      const newBtn = body.querySelector<HTMLButtonElement>('#addr-new');
-      if (newBtn) newBtn.onclick = () => {
-        pickedAddressId = null;
-        render();
-        (body.querySelector('#addr-input') as HTMLInputElement)?.focus();
-      };
-      const inp = body.querySelector<HTMLInputElement>('#addr-input');
-      if (inp) inp.oninput = () => { customAddress = inp.value; };
-      const saveChk = body.querySelector<HTMLInputElement>('#addr-save');
-      if (saveChk) saveChk.onchange = () => { saveAddr = saveChk.checked; };
-
-      (body.querySelector('#ord-go') as HTMLButtonElement).onclick = () => submit();
-    };
-
-    const submit = async () => {
-      const title    = (body.querySelector('#ord-title')   as HTMLInputElement).value.trim();
-      const phone    = (body.querySelector('#ord-phone')   as HTMLInputElement).value.trim();
-      const comment  = (body.querySelector('#ord-comment') as HTMLTextAreaElement).value.trim();
-      const err      = body.querySelector('#ord-err') as HTMLElement;
-      let address = '';
-      if (pickedAddressId) {
-        const saved = profile.addresses.find(a => a.id === pickedAddressId);
-        address = saved?.address ?? '';
-      } else {
-        address = customAddress.trim();
-      }
-
-      if (!title)   { err.hidden = false; err.textContent = 'Введите название заказа'; return; }
-      if (!address) { err.hidden = false; err.textContent = 'Укажите адрес доставки'; return; }
+      if (!title)               { err.hidden = false; err.textContent = 'Введите название заказа'; return; }
       if (!isValidPhone(phone)) { err.hidden = false; err.textContent = 'Укажите корректный телефон'; return; }
 
-      if (!pickedAddressId && saveAddr && address) {
-        api.profile.saveAddress({ address });
-      }
-
+      // Доставка пока скрыта — заказы забираются/обсуждаются вручную.
+      // Когда производство будет готово к доставке, вернём поле адреса
+      // (тип OrderHeader.delivery.address уже на месте).
       const header: OrderHeader = {
         title,
         contact: { name: profile.name, phone },
-        delivery: { address },
+        delivery: { address: '' },
         comment: comment || undefined,
       };
 
@@ -115,8 +73,6 @@ function openOrderFormSheet(cb: CheckoutCallbacks) {
       close();
       setTimeout(() => openOrderSuccess(result, cb), 100);
     };
-
-    render();
   }, { id: 'checkout-form' });
 }
 
@@ -145,27 +101,6 @@ function openOrderSuccess(order: Order, cb: CheckoutCallbacks) {
       cb.onSubmitted?.(order, true);
     };
   }, { id: 'checkout-success' });
-}
-
-function renderAddressBlock(saved: SavedAddress[], pickedId: string | null): string {
-  const customSelected = pickedId === null;
-  const chips = saved.map(a => `
-    <button class="addr-chip ${a.id === pickedId ? 'active' : ''}" data-id="${escapeHtml(a.id)}" type="button">
-      ${a.label ? `<span class="addr-chip-label">${escapeHtml(a.label)}</span>` : ''}
-      <span class="addr-chip-text">${escapeHtml(a.address)}</span>
-    </button>`).join('');
-  return `
-    <div class="addr-chips">
-      ${chips}
-      <button class="addr-chip addr-chip--new ${customSelected ? 'active' : ''}" id="addr-new" type="button">+ Новый</button>
-    </div>
-    ${customSelected ? `
-      <input type="text" class="checkout-input" id="addr-input" placeholder="Город, улица, дом, квартира" value="${escapeHtml('')}">
-      <label class="checkout-checkbox">
-        <input type="checkbox" id="addr-save">
-        <span>Сохранить адрес в профиле</span>
-      </label>
-    ` : ''}`;
 }
 
 function isValidPhone(s: string): boolean {

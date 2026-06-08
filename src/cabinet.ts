@@ -276,7 +276,7 @@ function orderDetailsPage(o: Order): Page {
         <div class="cab-od-block">
           <div class="cab-od-row"><span class="cab-od-label">Получатель</span><span class="cab-od-val">${escapeHtml(h.contact.name)}</span></div>
           <div class="cab-od-row"><span class="cab-od-label">Телефон</span><span class="cab-od-val">${escapeHtml(h.contact.phone)}</span></div>
-          <div class="cab-od-row"><span class="cab-od-label">Доставка</span><span class="cab-od-val">${escapeHtml(h.delivery.address)}</span></div>
+          ${h.delivery.address ? `<div class="cab-od-row"><span class="cab-od-label">Доставка</span><span class="cab-od-val">${escapeHtml(h.delivery.address)}</span></div>` : ''}
           ${h.comment ? `<div class="cab-od-row"><span class="cab-od-label">Комментарий</span><span class="cab-od-val">${escapeHtml(h.comment)}</span></div>` : ''}
         </div>` : ''}
 
@@ -306,12 +306,9 @@ function profileEditPage(): Page {
       wrap.className = 'cabinet-body checkout-body';
       body.appendChild(wrap);
 
-      const addrHtml = profile.addresses.map(a => `
-        <div class="cab-addr">
-          <span class="cab-addr-text">${escapeHtml(a.address)}</span>
-          <button class="cab-addr-del" data-id="${escapeHtml(a.id)}" type="button" aria-label="Удалить">×</button>
-        </div>`).join('');
-
+      // Адреса временно скрыты — производство ещё не готово к доставке.
+      // Когда вернём, добавим сюда блок сохранённых адресов; данные в
+      // profile.addresses сохраняются.
       wrap.innerHTML = `
         <label class="checkout-field">
           <span class="checkout-label">Имя</span>
@@ -322,32 +319,12 @@ function profileEditPage(): Page {
           <input type="tel" class="checkout-input" id="pe-phone" inputmode="tel" value="${escapeHtml(draftPhone)}">
         </label>
 
-        <div class="checkout-field">
-          <span class="checkout-label">Сохранённые адреса</span>
-          <div class="cab-addrs">${addrHtml || '<div class="cab-orders-empty">Нет сохранённых адресов</div>'}</div>
-          <div class="cab-addr-add">
-            <input type="text" class="checkout-input" id="pe-addr" placeholder="Добавить адрес">
-            <button class="btn btn-ghost cab-addr-add-btn" id="pe-addr-add" type="button">＋</button>
-          </div>
-        </div>
-
         <div class="checkout-error" id="pe-err" hidden></div>`;
 
       const nameEl  = wrap.querySelector('#pe-name')  as HTMLInputElement;
       const phoneEl = wrap.querySelector('#pe-phone') as HTMLInputElement;
       nameEl.oninput  = () => { draftName  = nameEl.value; };
       phoneEl.oninput = () => { draftPhone = phoneEl.value; };
-
-      wrap.querySelectorAll<HTMLButtonElement>('.cab-addr-del').forEach(btn => {
-        btn.onclick = () => { api.profile.removeAddress(btn.dataset.id!); };
-      });
-
-      const addInput = wrap.querySelector('#pe-addr') as HTMLInputElement;
-      (wrap.querySelector('#pe-addr-add') as HTMLButtonElement).onclick = () => {
-        const v = addInput.value.trim();
-        if (!v) return;
-        api.profile.saveAddress({ address: v });
-      };
     },
     action: {
       label: 'Сохранить',
