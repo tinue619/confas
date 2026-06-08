@@ -38,4 +38,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- navigator.vibrate() в WebView требует это разрешение, иначе Android
+         тихо игнорирует вызов. Используем для тактильного отклика на
+         «В заказ» и long-press превью. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

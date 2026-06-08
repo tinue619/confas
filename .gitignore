@@ -21,3 +21,6 @@ android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 *.keystore
 *.jks
+
+# Локальные референсные экспорты сечений
+*-профиль*.json

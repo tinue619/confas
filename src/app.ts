@@ -62,6 +62,7 @@ export function mountApp(root: HTMLElement) {
     <main>
       <div class="canvas-section">
         <canvas id="facade-canvas"></canvas>
+        <button class="view3d-btn" id="view3d-btn" aria-label="3D-просмотр">3D</button>
       </div>
       <div class="tool-area" id="tool-area"></div>
     </main>
@@ -250,6 +251,18 @@ export function mountApp(root: HTMLElement) {
   // ── Состав заказа (бывш. корзина) ────────────────────────────────────────
   const openCart = () => openCartSheet(fs, model, refresh, enterEditMode, startCheckout);
   cartBtn.onclick = openCart;
+
+  // 3D-просмотр текущего фасада. Babylon грузится лениво при первом нажатии.
+  const view3dBtn = document.getElementById('view3d-btn') as HTMLButtonElement;
+  view3dBtn.onclick = async () => {
+    view3dBtn.disabled = true;
+    try {
+      const { open3DViewer } = await import('./viewer3d');
+      open3DViewer(fsToConfig(fs), model);
+    } finally {
+      view3dBtn.disabled = false;
+    }
+  };
 
   // Добавление текущего фасада в заказ (идентичные конфиги мёрджатся).
   addFab.onclick = () => {
@@ -550,14 +563,19 @@ function sameConfig(a: FacadeConfig, b: FacadeConfig): boolean {
   return true;
 }
 
-function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
-  const br = calcPrice(model, fs);
-  const cfg: FacadeConfig = {
+/** Снимок FacadeState → сериализуемый FacadeConfig. */
+function fsToConfig(fs: FacadeState): FacadeConfig {
+  return {
     width: fs.width, height: fs.height,
     profileColor: fs.profileColor, glassColor: fs.glassColor, glassType: fs.glassType,
     tempered: fs.tempered, hingeMode: fs.hingeMode, hingeSide: fs.hingeSide,
     hingePositions: [...fs.hingePositions],
   };
+}
+
+function addCurrentToCart(fs: FacadeState, model: any, count = 1) {
+  const br = calcPrice(model, fs);
+  const cfg: FacadeConfig = fsToConfig(fs);
   // Идентичный фасад уже есть — увеличиваем количество.
   const existing = store.getOrder().items.find(it => sameConfig(it.config, cfg));
   if (existing) {
