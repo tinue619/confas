@@ -6,3 +6,18 @@ dist
 .idea
 .vscode
 *.log
+
+# Capacitor / Android: build-артефакты и локальные настройки.
+# Сам android/ коммитим — это часть проекта.
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/app/release/
+android/local.properties
+android/captures/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+*.keystore
+*.jks
