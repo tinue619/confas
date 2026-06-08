@@ -17,6 +17,7 @@ import { openCheckoutSheet } from './checkout';
 import { openCabinet, closeCabinet, setCabinetHandlers, openOrderDetails } from './cabinet';
 import { setOpenSheet } from './ui-sheet';
 import { fmtMoney, escapeHtml, compactSpec, facadeIcon } from './ui-format';
+import { bindLongPress } from './item-preview';
 
 const ICON = {
   cart: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.3 11.3a2 2 0 0 0 2 1.7h8.4a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/></svg>`,
@@ -626,7 +627,7 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
       if (t.closest('button, input')) return;
       onEdit(item.id);
     });
-    bindLongPress(row, item, model, i + 1);
+    bindLongPress(row, item, i + 1);
     body.appendChild(row);
   }
 
@@ -652,196 +653,6 @@ function fillCart(body: HTMLElement, rerender: () => void, _close: () => void, m
   body.appendChild(footer);
 }
 
-/** [Legacy SVG fallback] Не используется — рендерим через FacadeRenderer на canvas */
-function _facadePreviewSVG_unused(c: FacadeConfig): string {
-  const FRAME = 44, GLASS_M = 4;
-  // Подгоняем под ~260×340 с сохранением пропорций
-  const maxW = 260, maxH = 340;
-  const ar = c.width / c.height;
-  const maxAr = maxW / maxH;
-  const dispW = ar > maxAr ? maxW : maxH * ar;
-  const dispH = ar > maxAr ? maxW / ar : maxH;
-  const s = dispW / c.width;
-  const fpx = FRAME * s;
-  const gpx = GLASS_M * s;
-
-  const profileHex = PROFILE_COLORS[c.profileColor]?.hex ?? '#888';
-  const glassHex = GLASS_COLORS[c.glassColor]?.hex ?? '#c4d8de';
-  const matte = c.glassType === 'matte';
-  const textured = c.glassType === 'textured';
-  const rgba = (hex: string, a: number) => {
-    const m = hex.replace('#', '');
-    return `rgba(${parseInt(m.slice(0,2),16)},${parseInt(m.slice(2,4),16)},${parseInt(m.slice(4,6),16)},${a})`;
-  };
-
-  const padX = 24, padTop = 14, padBottom = 28;
-  const svgW = dispW + padX * 2;
-  const svgH = dispH + padTop + padBottom;
-  const rx = padX, ry = padTop;
-
-  // Стекло: подложка тёмная + заливка/рифление
-  let glassLayer: string;
-  if (textured) {
-    const pid = `prv-tx-${Math.random().toString(36).slice(2, 8)}`;
-    const stride = Math.max(3, 3 * s);
-    glassLayer = `
-      <defs>
-        <pattern id="${pid}" width="${stride}" height="${dispH - gpx * 2}" patternUnits="userSpaceOnUse">
-          <rect width="${stride}" height="${dispH - gpx * 2}" fill="${rgba(glassHex, 0.4)}"/>
-          <rect width="${stride * 0.45}" height="${dispH - gpx * 2}" fill="${rgba(glassHex, 0.75)}"/>
-        </pattern>
-      </defs>
-      <rect x="${rx + gpx}" y="${ry + gpx}" width="${dispW - gpx*2}" height="${dispH - gpx*2}" fill="#0d0c0b"/>
-      <rect x="${rx + gpx}" y="${ry + gpx}" width="${dispW - gpx*2}" height="${dispH - gpx*2}" fill="url(#${pid})"/>`;
-  } else {
-    glassLayer = `
-      <rect x="${rx + gpx}" y="${ry + gpx}" width="${dispW - gpx*2}" height="${dispH - gpx*2}" fill="#0d0c0b"/>
-      <rect x="${rx + gpx}" y="${ry + gpx}" width="${dispW - gpx*2}" height="${dispH - gpx*2}" fill="${rgba(glassHex, matte ? 0.7 : 0.4)}"/>`;
-  }
-
-  // Рама: 4 трапеции с 45° запилами
-  const outer = [[rx,ry],[rx+dispW,ry],[rx+dispW,ry+dispH],[rx,ry+dispH]];
-  const inner = [
-    [rx+fpx,ry+fpx],[rx+dispW-fpx,ry+fpx],
-    [rx+dispW-fpx,ry+dispH-fpx],[rx+fpx,ry+dispH-fpx],
-  ];
-  let framePaths = '';
-  for (let i = 0; i < 4; i++) {
-    const j = (i+1) % 4;
-    framePaths += `<polygon points="${outer[i][0]},${outer[i][1]} ${outer[j][0]},${outer[j][1]} ${inner[j][0]},${inner[j][1]} ${inner[i][0]},${inner[i][1]}" fill="${profileHex}"/>`;
-  }
-  // Тонкие контуры рамы + диагонали запилов
-  let frameStrokes = `<rect x="${rx}" y="${ry}" width="${dispW}" height="${dispH}" fill="none" stroke="rgba(0,0,0,0.45)" stroke-width="0.6"/>`;
-  frameStrokes += `<rect x="${rx+fpx}" y="${ry+fpx}" width="${dispW-fpx*2}" height="${dispH-fpx*2}" fill="none" stroke="rgba(0,0,0,0.45)" stroke-width="0.6"/>`;
-  for (let i = 0; i < 4; i++) {
-    frameStrokes += `<line x1="${outer[i][0]}" y1="${outer[i][1]}" x2="${inner[i][0]}" y2="${inner[i][1]}" stroke="rgba(0,0,0,0.45)" stroke-width="0.6"/>`;
-  }
-
-  // Петли
-  let hingeDots = '';
-  if (c.hingeMode !== 'none' && c.hingePositions.length > 0) {
-    const edgeOff = 12; // px от наружного края, где «сидят» петли
-    for (const pos of c.hingePositions) {
-      let cx_ = 0, cy_ = 0;
-      switch (c.hingeSide) {
-        case 'left':   cx_ = rx + edgeOff;          cy_ = ry + dispH - pos * s; break;
-        case 'right':  cx_ = rx + dispW - edgeOff;  cy_ = ry + dispH - pos * s; break;
-        case 'top':    cx_ = rx + pos * s;          cy_ = ry + edgeOff;         break;
-        case 'bottom': cx_ = rx + pos * s;          cy_ = ry + dispH - edgeOff; break;
-      }
-      hingeDots += `<circle cx="${cx_}" cy="${cy_}" r="5" fill="#0d0c0b" stroke="#c8a96e" stroke-width="1.4"/>`;
-      hingeDots += `<line x1="${cx_-2}" y1="${cy_}" x2="${cx_+2}" y2="${cy_}" stroke="#c8a96e" stroke-width="0.8"/>`;
-      hingeDots += `<line x1="${cx_}" y1="${cy_-2}" x2="${cx_}" y2="${cy_+2}" stroke="#c8a96e" stroke-width="0.8"/>`;
-    }
-  }
-
-  // Размеры (под и справа)
-  const widthLabel = `<text x="${rx + dispW/2}" y="${ry + dispH + 18}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="#7a7670">${c.width} мм</text>`;
-  const heightLabel = `<text x="${rx + dispW + 14}" y="${ry + dispH/2}" font-family="'JetBrains Mono', monospace" font-size="11" fill="#7a7670" transform="rotate(-90, ${rx + dispW + 14}, ${ry + dispH/2})" text-anchor="middle">${c.height} мм</text>`;
-
-  return `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" class="preview-svg">
-    ${glassLayer}
-    ${framePaths}
-    ${frameStrokes}
-    ${hingeDots}
-    ${widthLabel}
-    ${heightLabel}
-  </svg>`;
-}
-
-/** Показывает превью; возвращает функцию-закрывалку */
-function showCartPreview(item: OrderItem, model: any, num: number): () => void {
-  const overlay = document.createElement('div');
-  overlay.className = 'preview-overlay';
-  const card = document.createElement('div');
-  card.className = 'preview-card';
-  const specBits = compactSpec(item.config);
-  card.innerHTML = `
-    <div class="preview-header">
-      <span class="preview-num">${num}.</span>
-      <span class="preview-size">${item.config.width}×${item.config.height}</span>
-      ${item.qty > 1 ? `<span class="preview-qty">×${item.qty}</span>` : ''}
-    </div>
-    <div class="preview-canvas-wrap">
-      <canvas></canvas>
-    </div>
-    <div class="preview-spec">${escapeHtml(specBits || '—')}</div>`;
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-
-  // Рендер используем тот же, что в редакторе
-  const canvas = card.querySelector('canvas') as HTMLCanvasElement;
-  const tmpState = new FacadeState();
-  Object.assign(tmpState, item.config, {
-    hingePositions: [...item.config.hingePositions],
-  });
-  const renderer = new FacadeRenderer(canvas);
-  renderer.setModel(model);
-  renderer.setState(tmpState);
-  renderer.onTap = null;
-  requestAnimationFrame(() => renderer.redraw());
-
-  let closed = false;
-  const close = () => { if (!closed) { closed = true; overlay.remove(); } };
-  // Fallback: тап по затемнённому фону закрывает (на случай если pointerup потерялся)
-  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  return close;
-}
-
-/** Удержание тапа на строке: показывает превью, отпустил — скрыл.
-    Закрытие — только на реальный pointerup (а не pointercancel, который
-    браузер шлёт когда «решил» что это скролл). pointerup ловим на window
-    в capture-фазе, чтобы он гарантированно дошёл до нас. */
-function bindLongPress(row: HTMLElement, item: OrderItem, model: any, num: number) {
-  let timer: number | null = null;
-  let startX = 0, startY = 0;
-
-  row.addEventListener('pointerdown', e => {
-    const t = e.target as HTMLElement;
-    if (t.closest('button, input')) return;
-    const pid = e.pointerId;
-    startX = e.clientX; startY = e.clientY;
-
-    // Отпустили до срабатывания — отменяем
-    const earlyUp = (ev: PointerEvent) => {
-      if (ev.pointerId !== pid) return;
-      if (timer !== null) { clearTimeout(timer); timer = null; }
-      window.removeEventListener('pointerup', earlyUp, true);
-      window.removeEventListener('pointercancel', earlyUp, true);
-    };
-    window.addEventListener('pointerup', earlyUp, true);
-    window.addEventListener('pointercancel', earlyUp, true);
-
-    timer = window.setTimeout(() => {
-      timer = null;
-      window.removeEventListener('pointerup', earlyUp, true);
-      window.removeEventListener('pointercancel', earlyUp, true);
-
-      if ((navigator as any).vibrate) (navigator as any).vibrate(12);
-      const closePreview = showCartPreview(item, model, num);
-
-      // Закрытие — на любой pointerup/touchend/mouseup, без жёсткой
-      // привязки к pointerId (iOS иногда меняет id во время жеста).
-      const onAnyUp = () => {
-        closePreview();
-        window.removeEventListener('pointerup', onAnyUp, true);
-        window.removeEventListener('touchend', onAnyUp, true);
-        window.removeEventListener('mouseup', onAnyUp, true);
-      };
-      window.addEventListener('pointerup', onAnyUp, true);
-      window.addEventListener('touchend', onAnyUp, true);
-      window.addEventListener('mouseup', onAnyUp, true);
-    }, 450);
-  });
-
-  // Сдвиг ДО открытия превью — отмена. После открытия — игнор.
-  row.addEventListener('pointermove', e => {
-    if (timer === null) return;
-    if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) {
-      clearTimeout(timer); timer = null;
-    }
-  });
-}
 
 // ─── Bottom sheet helper ──────────────────────────────────────────────────────
 

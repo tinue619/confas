@@ -10,6 +10,7 @@
 import { api } from './api';
 import type { Order, OrderState } from './order';
 import { fmtMoney, escapeHtml, compactSpec, facadeIcon } from './ui-format';
+import { bindLongPress } from './item-preview';
 
 const STATE_LABEL: Record<OrderState, string> = {
   draft:     'Черновик',
@@ -256,7 +257,7 @@ function orderDetailsPage(o: Order): Page {
         const c = it.config;
         const spec = compactSpec(c);
         return `
-          <div class="cab-item">
+          <div class="cab-item" data-item-id="${escapeHtml(it.id)}">
             <span class="cab-item-num">${i + 1}.</span>
             <span class="cab-item-size">${c.width}×${c.height}</span>
             ${facadeIcon(c, 'od-' + it.id)}
@@ -280,13 +281,20 @@ function orderDetailsPage(o: Order): Page {
           ${h.comment ? `<div class="cab-od-row"><span class="cab-od-label">Комментарий</span><span class="cab-od-val">${escapeHtml(h.comment)}</span></div>` : ''}
         </div>` : ''}
 
-        <div class="cab-section-title">Состав</div>
+        <div class="cab-section-title">Состав <span class="cab-section-hint">удерживайте для превью</span></div>
         <div class="cab-items">${itemsHtml}</div>
 
         <div class="cab-od-total">
           <span>Итого</span>
           <span class="cab-od-total-val">${fmtMoney(total)}</span>
         </div>`;
+
+      // Long-press на строке позиции → превью изделия (как в корзине).
+      wrap.querySelectorAll<HTMLElement>('.cab-item').forEach((row, i) => {
+        const id = row.dataset.itemId;
+        const item = o.items.find(it => it.id === id);
+        if (item) bindLongPress(row, item, i + 1);
+      });
     },
   };
 }
